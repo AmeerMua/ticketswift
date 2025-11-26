@@ -30,7 +30,7 @@ import {
 import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -56,7 +56,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      if (user && !user.emailVerified) {
         const userRef = doc(firestore, 'users', user.uid);
         setDocumentNonBlocking(
           userRef,
@@ -68,6 +68,9 @@ export default function RegisterPage() {
           },
           { merge: true }
         );
+        sendEmailVerification(user);
+        router.push('/verify-email');
+      } else if (user && user.emailVerified) {
         router.push('/profile');
       }
     });

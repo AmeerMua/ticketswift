@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Ticket } from 'lucide-react';
 import { useUser } from '@/firebase';
@@ -14,14 +14,19 @@ export default function AuthLayout({
 }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/profile');
+        if (user.emailVerified) {
+            router.push('/profile');
+        } else if (pathname !== '/verify-email') {
+            router.push('/verify-email');
+        }
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, pathname]);
 
-  if (isUserLoading || user) {
+  if (isUserLoading || (user && pathname !== '/verify-email')) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <div className="w-full max-w-md space-y-4">
