@@ -3,7 +3,7 @@ export type User = {
   name: string;
   email: string;
   avatarUrl: string;
-  verificationStatus: 'Verified' | 'Pending' | 'Rejected';
+  verificationStatus: 'Verified' | 'Pending' | 'Rejected' | 'NotSubmitted';
   purchaseHistory: string[]; // Array of booking IDs
 };
 

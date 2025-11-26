@@ -12,21 +12,30 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, userData, isUserDataLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isUserLoading && user) {
-        if (user.emailVerified) {
+    if (isUserLoading || isUserDataLoading) return;
+
+    if (user) {
+        if (!user.emailVerified) {
+            if (pathname !== '/verify-email') router.push('/verify-email');
+        } else if (userData && userData.verificationStatus === 'Verified') {
             router.push('/profile');
-        } else if (pathname !== '/verify-email') {
-            router.push('/verify-email');
+        } else if (userData?.verificationStatus === 'Rejected' || userData?.verificationStatus === 'NotSubmitted' || !userData?.verificationStatus) {
+            if (pathname !== '/verify-id') router.push('/verify-id');
+        } else if (userData?.verificationStatus === 'Pending') {
+            if (pathname !== '/profile') router.push('/profile');
+        } else {
+            // Default to profile if in a weird state
+            if (pathname !== '/profile') router.push('/profile');
         }
     }
-  }, [user, isUserLoading, router, pathname]);
+  }, [user, isUserLoading, userData, isUserDataLoading, router, pathname]);
 
-  if (isUserLoading || (user && pathname !== '/verify-email')) {
+  if (isUserLoading || (user && (pathname !== '/verify-email' && pathname !== '/verify-id')) || isUserDataLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <div className="w-full max-w-md space-y-4">

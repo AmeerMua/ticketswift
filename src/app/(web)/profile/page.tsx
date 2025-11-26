@@ -7,13 +7,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { MailWarning, Edit } from 'lucide-react';
+import { MailWarning, Edit, Shield, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import { sendEmailVerification } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+
+const verificationStatusConfig = {
+    Verified: { icon: ShieldCheck, title: 'ID Verified', description: 'Your identity has been successfully verified.', variant: 'default' as const, badgeVariant: 'default' as const},
+    Pending: { icon: ShieldAlert, title: 'ID Verification Pending', description: 'Your ID is under review. This usually takes 1-2 business days.', variant: 'default' as const, badgeVariant: 'secondary' as const },
+    Rejected: { icon: ShieldX, title: 'ID Verification Rejected', description: 'Your ID could not be verified. Please try uploading again.', variant: 'destructive' as const, badgeVariant: 'destructive' as const },
+    NotSubmitted: { icon: Shield, title: 'ID Not Submitted', description: 'Please upload your ID to get full access to booking tickets.', variant: 'default' as const, badgeVariant: 'secondary' as const},
+};
+
 
 export default function ProfilePage() {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, userData, isUserDataLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -48,7 +57,7 @@ export default function ProfilePage() {
     }
   };
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || isUserDataLoading) {
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="max-w-xl mx-auto">
@@ -58,6 +67,7 @@ export default function ProfilePage() {
                         <Skeleton className="h-4 w-64 mt-2" />
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        <Skeleton className="h-24 w-full" />
                         <Skeleton className="h-6 w-full" />
                         <Skeleton className="h-6 w-full" />
                         <Skeleton className="h-10 w-24 mt-4" />
@@ -68,23 +78,41 @@ export default function ProfilePage() {
     );
   }
 
+  const verificationStatus = userData?.verificationStatus || 'NotSubmitted';
+  const statusConfig = verificationStatusConfig[verificationStatus];
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-xl mx-auto">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-start justify-between">
             <div>
                 <CardTitle className="font-headline text-2xl">User Profile</CardTitle>
                 <CardDescription>View and manage your account details.</CardDescription>
             </div>
-            <Button asChild variant="outline" size="icon">
-                <Link href="/profile/edit">
-                    <Edit className="h-4 w-4" />
-                    <span className="sr-only">Edit Profile</span>
-                </Link>
-            </Button>
+            <div className='flex items-center gap-2'>
+                <Badge variant={statusConfig.badgeVariant}>{verificationStatus}</Badge>
+                <Button asChild variant="outline" size="icon">
+                    <Link href="/profile/edit">
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Edit Profile</span>
+                    </Link>
+                </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Alert variant={statusConfig.variant}>
+                <statusConfig.icon className="h-4 w-4" />
+                <AlertTitle>{statusConfig.title}</AlertTitle>
+                <AlertDescription>
+                    {statusConfig.description}
+                    {verificationStatus !== 'Verified' && verificationStatus !== 'Pending' && (
+                        <Button asChild variant="link" className='p-0 h-auto ml-1'>
+                            <Link href="/verify-id">Verify Now</Link>
+                        </Button>
+                    )}
+                </AlertDescription>
+            </Alert>
             {!user.emailVerified && (
                 <Alert variant="destructive">
                     <MailWarning className="h-4 w-4" />

@@ -1,4 +1,6 @@
-import { MoreHorizontal } from 'lucide-react';
+'use client';
+
+import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -21,18 +23,45 @@ import {
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { mockUsers } from '@/lib/data';
 import Image from 'next/image';
+import { useCollection, useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
-const statusVariant = {
-    Verified: "default",
-    Pending: "secondary",
-    Rejected: "destructive"
-} as const;
+const statusConfig = {
+    Verified: { variant: "default" as const, icon: CheckCircle, className: "text-green-600" },
+    Pending: { variant: "secondary" as const, icon: Loader2, className: "animate-spin" },
+    Rejected: { variant: "destructive" as const, icon: XCircle, className: "" },
+    NotSubmitted: { variant: "outline" as const, icon: ShieldQuestion, className: "" },
+};
 
 export default function AdminUsersPage() {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    
+    const usersQuery = useMemo(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'users');
+    }, [firestore]);
+
+    const { data: users, isLoading, error } = useCollection(usersQuery);
+
+    const handleVerification = (userId: string, newStatus: 'Verified' | 'Rejected') => {
+        if (!firestore) return;
+        const userRef = doc(firestore, 'users', userId);
+        updateDocumentNonBlocking(userRef, { verificationStatus: newStatus });
+        toast({
+            title: `User ${newStatus}`,
+            description: `The user's verification status has been updated.`,
+        })
+    }
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
@@ -48,58 +77,111 @@ export default function AdminUsersPage() {
             <CardDescription>Approve or reject user ID card submissions for account verification.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className='text-center'>Status</TableHead>
-                <TableHead className='text-right'>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium flex items-center gap-3">
-                    <Image src={user.avatarUrl} alt={user.name} width={40} height={40} className="rounded-full" />
-                    <div>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-sm text-muted-foreground">ID: {user.id}</div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={statusVariant[user.verificationStatus]}>
-                      {user.verificationStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        {user.verificationStatus === 'Pending' && (
-                            <>
-                                <DropdownMenuItem className="text-green-600 focus:bg-green-100 focus:text-green-700">Approve ID</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600 focus:bg-red-100 focus:text-red-700">Reject ID</DropdownMenuItem>
-                            </>
-                        )}
-                        <DropdownMenuItem>View Profile</DropdownMenuItem>
-                        <DropdownMenuItem>Suspend Account</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+            {isLoading && (
+                <div className='space-y-2'>
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="flex items-center p-4 space-x-4">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-2 flex-1">
+                                <Skeleton className="h-4 w-1/4" />
+                                <Skeleton className="h-3 w-1/2" />
+                            </div>
+                            <Skeleton className="h-6 w-24 rounded-full" />
+                            <Skeleton className="h-8 w-8" />
+                        </div>
+                    ))}
+                </div>
+            )}
+            {error && (
+                <Alert variant="destructive">
+                    <XCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>Failed to load users. Please check your connection or permissions.</AlertDescription>
+                </Alert>
+            )}
+          {!isLoading && !error && (
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className='text-center'>Status</TableHead>
+                    <TableHead className='text-right'>
+                    <span className="sr-only">Actions</span>
+                    </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {(users || []).map((user) => {
+                    const status = user.verificationStatus || 'NotSubmitted';
+                    const config = statusConfig[status];
+                    const Icon = config.icon;
+                    return (
+                        <TableRow key={user.id}>
+                        <TableCell className="font-medium flex items-center gap-3">
+                            <Image src={`https://i.pravatar.cc/150?u=${user.id}`} alt={user.name} width={40} height={40} className="rounded-full" />
+                            <div>
+                                <div className="font-medium">{user.name}</div>
+                                <div className="text-sm text-muted-foreground">ID: {user.id}</div>
+                            </div>
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell className="text-center">
+                            <Badge variant={config.variant} className='gap-1.5'>
+                                <Icon className={`h-3.5 w-3.5 ${config.className}`} />
+                                {status}
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                {status === 'Pending' && (
+                                    <>
+                                        <DropdownMenuItem 
+                                            className="text-green-600 focus:bg-green-100 focus:text-green-700"
+                                            onClick={() => handleVerification(user.id, 'Verified')}
+                                        >
+                                            Approve ID
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem 
+                                            className="text-red-600 focus:bg-red-100 focus:text-red-700"
+                                            onClick={() => handleVerification(user.id, 'Rejected')}
+                                        >
+                                            Reject ID
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                    </>
+                                )}
+                                 {status === 'Rejected' && (
+                                    <>
+                                        <DropdownMenuItem 
+                                            className="text-green-600 focus:bg-green-100 focus:text-green-700"
+                                            onClick={() => handleVerification(user.id, 'Verified')}
+                                        >
+                                            Approve ID
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                    </>
+                                )}
+                                <DropdownMenuItem disabled>View Profile</DropdownMenuItem>
+                                <DropdownMenuItem disabled>Suspend Account</DropdownMenuItem>
+                            </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                        </TableRow>
+                    )
+                })}
+                </TableBody>
+            </Table>
+          )}
+          
         </CardContent>
       </Card>
     </div>

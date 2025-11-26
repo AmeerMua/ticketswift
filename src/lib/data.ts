@@ -25,6 +25,14 @@ export const mockUsers: User[] = [
     verificationStatus: 'Rejected',
     purchaseHistory: [],
   },
+   {
+    id: 'user-4',
+    name: 'John Doe',
+    email: 'john.d@example.com',
+    avatarUrl: 'https://i.pravatar.cc/150?u=user-4',
+    verificationStatus: 'NotSubmitted',
+    purchaseHistory: [],
+  }
 ];
 
 export const mockEvents: Event[] = [
