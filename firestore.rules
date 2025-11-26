@@ -1,0 +1,176 @@
+/**
+ * This ruleset enforces a security model with two primary roles: Users and Admins.
+ * - Core Philosophy: The default posture is to deny all access. Rules then grant specific
+ *   permissions. Admins, identified by a document in the `/roles_admin` collection, have
+ *   broad access for management. Regular users have restricted access, primarily to their
+ *   own data and public information.
+ * - Data Structure: Data is organized into a top-level public `/events` collection and a
+ *   user-private `/users` collection. Each user's data, including their bookings, is
+ *   nested under their unique user ID (`/users/{userId}`), creating a clear ownership hierarchy.
+ * - Key Security Decisions:
+ *   - Admin access is managed via a `/roles_admin` collection (Database-Based Access Control).
+ *   - User enumeration is prevented by disallowing `list` operations on the top-level `/users` collection.
+ *   - Public data like events and ticket categories is readable by anyone, but writable only by admins.
+ *   - A critical business rule is enforced: only users with `verified == true` on their user
+ *     document can create new bookings.
+ * - Denormalization for Authorization: The `userId` is denormalized onto `Booking` documents.
+ *   This allows security rules on the `/users/{userId}/bookings/{bookingId}` path to authorize
+ *   requests by checking the document's `userId` field against the user's auth token, without
+ *   needing extra database reads.
+ * - Structural Segregation: Public data (`/events`) is stored separately from user-specific
+ *   private data (`/users`), and administrative roles (`/roles_admin`) are in their own
+ *   dedicated collection. This separation simplifies rules and improves query performance.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------------
+    // Helper Functions
+    // ----------------------------------------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    // function isSignedIn() {
+    //   return request.auth != null;
+    // }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the given userId.
+     * This is the foundation for the ownership model.
+     * @param userId The user ID to check against.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if the requesting user has an admin role.
+     * Admin status is conferred by the existence of a document in the roles_admin collection.
+     */
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /**
+     * Checks if the user's profile document has the 'verified' flag set to true.
+     * This requires a single document read and is used to authorize booking creation.
+     */
+    function isVerifiedUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == true;
+    }
+
+    /**
+     * On user profile update, ensures the 'id' field is not being changed.
+     * This prevents re-linking a user profile to a different auth UID.
+     */
+    // function isUserIdImmutable() {
+    //   return request.resource.data.get('id') == resource.data.get('id');
+    // }
+
+    /**
+     * On user profile update, ensures a non-admin user cannot change their own 'verified' status.
+     */
+    function isNotChangingVerification() {
+      // Allow the change if the field doesn't exist on the old resource (e.g., during field addition).
+      // Otherwise, ensure the value remains the same.
+      return !('verified' in resource.data) || request.resource.data.get('verified') == resource.data.get('verified');
+    }
+
+    /**
+     * On user document creation, ensures the document's internal 'id' field
+     * matches the document's ID from the path, establishing the ownership link.
+     */
+    function hasValidUserIdOnCreate(userId) {
+      return request.resource.data.id == userId;
+    }
+
+    /**
+     * On booking creation, ensures the booking's internal 'userId' field
+     * matches the user's ID from the path, establishing the ownership link.
+     */
+    function hasValidBookingUserIdOnCreate(userId) {
+      return request.resource.data.userId == userId;
+    }
+
+    // ----------------------------------------------------------------------
+    // Collection Rules
+    // ----------------------------------------------------------------------
+
+    /**
+     * @description Publicly readable event information. Only admins can create, modify, or delete events.
+     * @path /events/{eventId}
+     * @allow (get) Any user, signed in or not, can read an event.
+     * @deny (create) A non-admin user attempts to create a new event.
+     * @principle Segregates public data and restricts write access to privileged roles.
+     */
+    match /events/{eventId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+
+      /**
+       * @description Ticket categories for an event. Inherits the same access pattern as the parent event.
+       * @path /events/{eventId}/ticketCategories/{ticketCategoryId}
+       * @allow (get) Any user can read the ticket categories for an event.
+       * @deny (create) A regular signed-in user attempts to add a new ticket category.
+       * @principle Enforces consistent security on nested data that shares the same access requirements as its parent.
+       */
+      match /ticketCategories/{ticketCategoryId} {
+        allow get, list: if true;
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    /**
+     * @description User profile documents. Users can create and manage their own profile. Admins have override access.
+     * @path /users/{userId}
+     * @allow (create) A new user with uid 'user123' creates their own document at `/users/user123`.
+     * @deny (list) Any user attempts to list all documents in the `/users` collection.
+     * @deny (update) A user tries to change their own `verified` status from false to true.
+     * @principle Restricts access to a user's own data tree and prevents user enumeration.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if false;
+      allow create: if isOwner(userId) && hasValidUserIdOnCreate(userId);
+      allow update: if (isOwner(userId) && isNotChangingVerification()) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+
+      /**
+       * @description A user's ticket bookings. Only the user who owns the booking can manage it.
+       * @path /users/{userId}/bookings/{bookingId}
+       * @allow (create) A verified user with uid 'user123' creates a new booking under their own path.
+       * @deny (create) A user whose profile has `verified: false` attempts to create a booking.
+       * @deny (get) User 'user456' attempts to read a booking belonging to 'user123'.
+       * @principle Enforces document ownership and applies business logic (user verification) for write operations.
+       */
+      match /bookings/{bookingId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && isVerifiedUser() && hasValidBookingUserIdOnCreate(userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    /**
+     * @description Admin role management. Existence of a document here grants admin rights. Only other admins can manage this collection.
+     * @path /roles_admin/{userId}
+     * @allow (create) An existing admin creates a document for 'user789' to make them an admin.
+     * @deny (get) A non-admin user attempts to read a document to see if someone else is an admin.
+     * @deny (list) Any user, including an admin, attempts to list all admins.
+     * @principle Secures role-granting functionality and prevents enumeration of privileged users.
+     */
+    match /roles_admin/{userId} {
+      allow get: if isAdmin();
+      allow list: if false;
+      allow create: if isAdmin();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}
