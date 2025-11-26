@@ -2,9 +2,10 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore, doc } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { useDoc } from './firestore/use-doc';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -30,6 +31,8 @@ export interface FirebaseContextState {
   user: User | null;
   isUserLoading: boolean; // True during initial auth check
   userError: Error | null; // Error from auth listener
+  userData: any | null; // User document from Firestore
+  isUserDataLoading: boolean;
 }
 
 // Return type for useFirebase()
@@ -40,6 +43,8 @@ export interface FirebaseServicesAndUser {
   user: User | null;
   isUserLoading: boolean;
   userError: Error | null;
+  userData: any | null;
+  isUserDataLoading: boolean;
 }
 
 // Return type for useUser() - specific to user auth state
@@ -47,6 +52,8 @@ export interface UserHookResult { // Renamed from UserAuthHookResult for consist
   user: User | null;
   isUserLoading: boolean;
   userError: Error | null;
+  userData: any | null;
+  isUserDataLoading: boolean;
 }
 
 // React Context
@@ -66,6 +73,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     isUserLoading: true, // Start loading until first auth event
     userError: null,
   });
+
+  const userDocRef = useMemoFirebase(() => {
+      if (!firestore || !userAuthState.user) return null;
+      return doc(firestore, 'users', userAuthState.user.uid);
+  }, [firestore, userAuthState.user]);
+
+  const { data: userData, isLoading: isUserDataLoading } = useDoc(userDocRef);
+
 
   // Effect to subscribe to Firebase auth state changes
   useEffect(() => {
@@ -100,8 +115,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       user: userAuthState.user,
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
+      userData,
+      isUserDataLoading
     };
-  }, [firebaseApp, firestore, auth, userAuthState]);
+  }, [firebaseApp, firestore, auth, userAuthState, userData, isUserDataLoading]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -133,6 +150,8 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     user: context.user,
     isUserLoading: context.isUserLoading,
     userError: context.userError,
+    userData: context.userData,
+    isUserDataLoading: context.isUserDataLoading
   };
 };
 
@@ -171,6 +190,6 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
  * @returns {UserHookResult} Object with user, isUserLoading, userError.
  */
 export const useUser = (): UserHookResult => { // Renamed from useAuthUser
-  const { user, isUserLoading, userError } = useFirebase(); // Leverages the main hook
-  return { user, isUserLoading, userError };
+  const { user, isUserLoading, userError, userData, isUserDataLoading } = useFirebase(); // Leverages the main hook
+  return { user, isUserLoading, userError, userData, isUserDataLoading };
 };

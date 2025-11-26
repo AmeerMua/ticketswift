@@ -30,7 +30,7 @@ import {
 import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
+import { onAuthStateChanged, sendEmailVerification, updateProfile } from 'firebase/auth';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -56,22 +56,32 @@ export default function RegisterPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && !user.emailVerified) {
-        const userRef = doc(firestore, 'users', user.uid);
-        setDocumentNonBlocking(
-          userRef,
-          {
-            id: user.uid,
-            email: user.email,
-            verified: false,
-            name: form.getValues('name') || user.displayName,
-          },
-          { merge: true }
-        );
-        sendEmailVerification(user);
-        router.push('/verify-email');
+      if (user && user.email && !user.displayName) {
+        // This is a new user, set display name and create firestore doc
+        const name = form.getValues('name');
+        updateProfile(user, { displayName: name }).then(() => {
+          const userRef = doc(firestore, 'users', user.uid);
+          setDocumentNonBlocking(
+            userRef,
+            {
+              id: user.uid,
+              email: user.email,
+              verified: false,
+              name: name,
+            },
+            { merge: true }
+          );
+          if (!user.emailVerified) {
+            sendEmailVerification(user);
+            router.push('/verify-email');
+          } else {
+             router.push('/profile');
+          }
+        });
       } else if (user && user.emailVerified) {
         router.push('/profile');
+      } else if (user && !user.emailVerified) {
+        router.push('/verify-email');
       }
     });
 

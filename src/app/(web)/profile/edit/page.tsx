@@ -33,7 +33,7 @@ const formSchema = z.object({
 });
 
 export default function EditProfilePage() {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, userData } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
@@ -56,23 +56,29 @@ export default function EditProfilePage() {
   }, [user, isUserLoading, router, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user) return;
+    if (!user || !userData) return;
 
     try {
       // Update Firebase Auth profile
-      await updateProfile(user, {
-        displayName: values.displayName,
-      });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: values.displayName,
+        });
+      }
 
       // Update Firestore document
       const userRef = doc(firestore, 'users', user.uid);
-      updateDocumentNonBlocking(userRef, { name: values.displayName });
+      updateDocumentNonBlocking(userRef, { 
+        name: values.displayName,
+        verified: userData.verified // Preserve the existing verification status
+      });
 
       toast({
         title: 'Profile Updated',
         description: 'Your display name has been successfully updated.',
       });
       router.push('/profile');
+      router.refresh(); // Force a refresh to show the new name in the header
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
