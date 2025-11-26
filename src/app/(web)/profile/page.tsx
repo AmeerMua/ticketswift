@@ -98,10 +98,6 @@ export default function ProfilePage() {
               <p className="font-semibold">Email Verified:</p>
               <p>{user.emailVerified ? 'Yes' : 'No'}</p>
             </div>
-            <div>
-              <p className="font-semibold">User ID:</p>
-              <p className="text-sm text-muted-foreground">{user.uid}</p>
-            </div>
             <Button onClick={handleSignOut} variant="destructive">
               Sign Out
             </Button>
