@@ -12,7 +12,7 @@
  *   - User enumeration is prevented by disallowing `list` operations on the top-level `/users` collection.
  *   - Public data like events and ticket categories is readable by anyone, but writable only by admins.
  *   - A critical business rule is enforced: only users with `verified == true` on their user
- *     document can create new bookings.
+ *     document can create new bookings, and each booking is limited to 3 tickets.
  * - Denormalization for Authorization: The `userId` is denormalized onto `Booking` documents.
  *   This allows security rules on the `/users/{userId}/bookings/{bookingId}` path to authorize
  *   requests by checking the document's `userId` field against the user's auth token, without
@@ -62,19 +62,19 @@ service cloud.firestore {
     }
 
     /**
-     * On user profile update, ensures the 'id' field is not being changed.
-     * This prevents re-linking a user profile to a different auth UID.
+     * Enforces the business rule that a single booking cannot contain more than 3 tickets.
      */
-    // function isUserIdImmutable() {
-    //   return request.resource.data.get('id') == resource.data.get('id');
-    // }
+    function isBookingWithinTicketLimit() {
+      return request.resource.data.numberOfTickets <= 3;
+    }
 
     /**
      * On user profile update, ensures a non-admin user cannot change their own 'verified' status.
      * Allows the update if 'verified' is not in the request, or if it is present but unchanged.
      */
     function isNotChangingVerification() {
-      return !('verified' in request.resource.data) || request.resource.data.verified == resource.data.verified;
+      let isVerifiedUnchanged = !('verified' in request.resource.data) || (request.resource.data.verified == resource.data.verified);
+      return isVerifiedUnchanged;
     }
 
     /**
@@ -146,11 +146,11 @@ service cloud.firestore {
        * @allow (create) A verified user with uid 'user123' creates a new booking under their own path.
        * @deny (create) A user whose profile has `verified: false` attempts to create a booking.
        * @deny (get) User 'user456' attempts to read a booking belonging to 'user123'.
-       * @principle Enforces document ownership and applies business logic (user verification) for write operations.
+       * @principle Enforces document ownership and applies business logic for write operations.
        */
       match /bookings/{bookingId} {
         allow get, list: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) && isVerifiedUser() && hasValidBookingUserIdOnCreate(userId);
+        allow create: if isOwner(userId) && isVerifiedUser() && hasValidBookingUserIdOnCreate(userId) && isBookingWithinTicketLimit();
         allow update: if false;
         allow delete: if isOwner(userId) || isAdmin();
       }

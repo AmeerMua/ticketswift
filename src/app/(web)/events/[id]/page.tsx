@@ -20,11 +20,13 @@ import { Calendar, Clock, MapPin, Ticket, Minus, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUser } from '@/firebase';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 export default function EventDetailsPage() {
   const params = useParams();
   const id = params.id as string;
   const { user, userData } = useUser();
+  const { toast } = useToast();
 
   const event = useMemo(() => mockEvents.find((e) => e.id === id), [id]);
 
@@ -38,9 +40,33 @@ export default function EventDetailsPage() {
   
   const handleQuantityChange = (categoryId: string, delta: number) => {
     setTicketQuantities((prev) => {
+      const currentTotal = Object.values(prev).reduce((sum, qty) => sum + qty, 0);
+
+      if (delta > 0 && currentTotal >= 3) {
+        toast({
+          variant: 'destructive',
+          title: 'Booking Limit Reached',
+          description: 'You can book a maximum of 3 tickets per event.',
+        });
+        return prev;
+      }
+
       const currentQuantity = prev[categoryId] || 0;
       const newQuantity = Math.max(0, currentQuantity + delta);
-      // Optional: Add a check against ticket limits here in a real app
+      
+      const newTotal = currentTotal - currentQuantity + newQuantity;
+
+      if (newTotal > 3) {
+         toast({
+          variant: 'destructive',
+          title: 'Booking Limit Exceeded',
+          description: 'You can book a maximum of 3 tickets per event.',
+        });
+        // Adjust the quantity to not exceed the limit
+        const adjustedNewQuantity = newQuantity - (newTotal - 3);
+        return { ...prev, [categoryId]: adjustedNewQuantity };
+      }
+
       return { ...prev, [categoryId]: newQuantity };
     });
   };
@@ -53,7 +79,6 @@ export default function EventDetailsPage() {
   const isBookingDisabled = () => {
     if (!user) return true;
     if (!userData) return true;
-    // Check for the `verified` field which is a boolean, not verificationStatus
     return userData.verified !== true;
   };
 
@@ -70,7 +95,7 @@ export default function EventDetailsPage() {
             case 'Rejected':
                 return <p>Your ID verification was rejected. Please <Link href="/verify-id" className="font-bold underline">resubmit your ID</Link>.</p>;
             default:
-                return <p>Please complete your <Link href="/verify-id" className="font-bold underline">ID verification</Link> to book tickets.</p>;
+                return <p>Please complete your <Link href="/verify-id" className="font-bold underline text-red-900 dark:text-red-300">ID verification</Link> to book tickets.</p>;
         }
     }
     return null;
@@ -135,14 +160,14 @@ export default function EventDetailsPage() {
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => handleQuantityChange(category.id, -1)}
-                      disabled={ticketQuantities[category.id] === 0}
+                      disabled={(ticketQuantities[category.id] || 0) === 0}
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
                     <Input
                       type="number"
                       className="h-8 w-14 text-center"
-                      value={ticketQuantities[category.id]}
+                      value={ticketQuantities[category.id] || 0}
                       readOnly
                     />
                     <Button
@@ -150,6 +175,7 @@ export default function EventDetailsPage() {
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => handleQuantityChange(category.id, 1)}
+                      disabled={totalTickets >= 3}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
