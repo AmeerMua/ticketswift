@@ -49,7 +49,6 @@ export default function LoginPage() {
       await initiateEmailSignIn(auth, values.email, values.password);
       // The onAuthStateChanged listener in AuthLayout will handle the redirect on success
     } catch (error) {
-      console.error(error);
       let title = 'Sign-in Failed';
       let description = 'An unexpected error occurred. Please try again.';
 
