@@ -39,7 +39,7 @@ export default function ProfilePage() {
   };
 
   const handleResendVerification = async () => {
-    if (user) {
+    if (user && !user.emailVerified) {
       try {
         await sendEmailVerification(user);
         toast({
@@ -78,8 +78,12 @@ export default function ProfilePage() {
     );
   }
 
+  // Fallback to 'NotSubmitted' if verificationStatus is not present
   const verificationStatus = userData?.verificationStatus || 'NotSubmitted';
   const statusConfig = verificationStatusConfig[verificationStatus];
+  
+  // Determine if the user is verified, which is a separate boolean field
+  const isIdVerified = userData?.verified === true;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -91,7 +95,7 @@ export default function ProfilePage() {
                 <CardDescription>View and manage your account details.</CardDescription>
             </div>
             <div className='flex items-center gap-2'>
-                <Badge variant={statusConfig.badgeVariant}>{verificationStatus}</Badge>
+                <Badge variant={statusConfig.badgeVariant}>{isIdVerified ? "Verified" : verificationStatus}</Badge>
                 <Button asChild variant="outline" size="icon">
                     <Link href="/profile/edit">
                         <Edit className="h-4 w-4" />
@@ -101,14 +105,16 @@ export default function ProfilePage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert variant={statusConfig.variant}>
-                <statusConfig.icon className="h-4 w-4" />
-                <AlertTitle>{statusConfig.title}</AlertTitle>
+            <Alert variant={isIdVerified ? 'default' : statusConfig.variant}>
+                {isIdVerified ? <ShieldCheck className="h-4 w-4" /> : <statusConfig.icon className="h-4 w-4" />}
+                <AlertTitle>{isIdVerified ? verificationStatusConfig.Verified.title : statusConfig.title}</AlertTitle>
                 <AlertDescription>
-                    {statusConfig.description}
-                    {verificationStatus !== 'Verified' && verificationStatus !== 'Pending' && (
+                    {isIdVerified ? verificationStatusConfig.Verified.description : statusConfig.description}
+                    {!isIdVerified && verificationStatus !== 'Pending' && (
                         <Button asChild variant="link" className='p-0 h-auto ml-1'>
-                            <Link href="/verify-id">Verify Now</Link>
+                            <Link href="/verify-id">
+                                {verificationStatus === 'Rejected' ? 'Resubmit ID' : 'Verify Now'}
+                            </Link>
                         </Button>
                     )}
                 </AlertDescription>
@@ -130,10 +136,6 @@ export default function ProfilePage() {
             <div>
               <p className="font-semibold">Email:</p>
               <p>{user.email}</p>
-            </div>
-            <div>
-              <p className="font-semibold">Email Verified:</p>
-              <p>{user.emailVerified ? 'Yes' : 'No'}</p>
             </div>
             <Button onClick={handleSignOut} variant="destructive">
               Sign Out

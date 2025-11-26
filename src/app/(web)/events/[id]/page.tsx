@@ -53,11 +53,29 @@ export default function EventDetailsPage() {
   const isBookingDisabled = () => {
     if (!user) return true;
     if (!userData) return true;
-    if (!user.emailVerified) return true;
-    return userData.verificationStatus !== 'Verified';
+    // Check for the `verified` field which is a boolean, not verificationStatus
+    return userData.verified !== true;
   };
 
   const bookingDisabled = isBookingDisabled();
+
+  const getDisabledMessage = () => {
+    if (!user) {
+        return <p>Please <Link href="/login" className="font-bold underline">log in</Link> to book tickets.</p>;
+    }
+    if (!userData?.verified) {
+        switch (userData?.verificationStatus) {
+            case 'Pending':
+                return <p>Your ID verification is pending. You can book tickets once approved.</p>;
+            case 'Rejected':
+                return <p>Your ID verification was rejected. Please <Link href="/verify-id" className="font-bold underline">resubmit your ID</Link>.</p>;
+            default:
+                return <p>Please complete your <Link href="/verify-id" className="font-bold underline">ID verification</Link> to book tickets.</p>;
+        }
+    }
+    return null;
+};
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -148,9 +166,7 @@ export default function EventDetailsPage() {
                 )}
                  {bookingDisabled && (
                     <div className="text-center p-3 rounded-md border border-destructive/50 bg-destructive/10 text-destructive-foreground text-sm">
-                        {!user && <p>Please <Link href="/login" className="font-bold underline">log in</Link> to book tickets.</p>}
-                        {user && !user.emailVerified && <p>Please verify your email to book tickets.</p>}
-                        {user && user.emailVerified && userData?.verificationStatus !== 'Verified' && <p>Please complete your <Link href="/verify-id" className="font-bold underline">ID verification</Link> to book tickets.</p>}
+                        {getDisabledMessage()}
                     </div>
                  )}
               <Button size="lg" disabled={totalTickets === 0 || bookingDisabled}>

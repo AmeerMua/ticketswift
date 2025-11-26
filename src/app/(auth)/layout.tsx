@@ -20,22 +20,26 @@ export default function AuthLayout({
     if (isUserLoading || isUserDataLoading) return;
 
     if (user) {
-        if (!user.emailVerified) {
-            if (pathname !== '/verify-email') router.push('/verify-email');
-        } else if (userData && userData.verificationStatus === 'Verified') {
-            router.push('/profile');
-        } else if (userData?.verificationStatus === 'Rejected' || userData?.verificationStatus === 'NotSubmitted' || !userData?.verificationStatus) {
+      if (userData?.verified) {
+        // If ID is verified, they can go anywhere, usually profile or home
+        router.push('/profile');
+      } else {
+        // If ID is not verified, follow the verification flow
+        switch (userData?.verificationStatus) {
+          case 'Pending':
+            if (pathname !== '/profile') router.push('/profile');
+            break;
+          case 'Rejected':
+          case 'NotSubmitted':
+          default:
             if (pathname !== '/verify-id') router.push('/verify-id');
-        } else if (userData?.verificationStatus === 'Pending') {
-            if (pathname !== '/profile') router.push('/profile');
-        } else {
-            // Default to profile if in a weird state
-            if (pathname !== '/profile') router.push('/profile');
+            break;
         }
+      }
     }
   }, [user, isUserLoading, userData, isUserDataLoading, router, pathname]);
 
-  if (isUserLoading || (user && (pathname !== '/verify-email' && pathname !== '/verify-id')) || isUserDataLoading) {
+  if (isUserLoading || (user && !userData) || isUserDataLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
         <div className="w-full max-w-md space-y-4">
