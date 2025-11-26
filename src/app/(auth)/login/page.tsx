@@ -24,6 +24,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/firebase';
 import { initiateEmailSignIn } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { FirebaseError } from 'firebase/app';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -32,6 +34,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const auth = useAuth();
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -41,8 +44,39 @@ export default function LoginPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    initiateEmailSignIn(auth, values.email, values.password);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      await initiateEmailSignIn(auth, values.email, values.password);
+      // The onAuthStateChanged listener in AuthLayout will handle the redirect on success
+    } catch (error) {
+      console.error(error);
+      let title = 'Sign-in Failed';
+      let description = 'An unexpected error occurred. Please try again.';
+
+      if (error instanceof FirebaseError) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            title = 'Invalid Credentials';
+            description = 'The email or password you entered is incorrect.';
+            break;
+          case 'auth/invalid-email':
+            title = 'Invalid Email';
+            description = 'Please enter a valid email address.';
+            break;
+          default:
+            description = error.message;
+            break;
+        }
+      }
+
+      toast({
+        variant: 'destructive',
+        title: title,
+        description: description,
+      });
+    }
   }
 
   return (
