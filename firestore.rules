@@ -50,7 +50,8 @@ service cloud.firestore {
      * Admin status is conferred by the existence of a document in the roles_admin collection.
      */
     function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      // Check the user document for the isAdmin flag.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
     /**
@@ -69,13 +70,15 @@ service cloud.firestore {
     }
 
     /**
-     * On user profile update, ensures a non-admin user cannot change their own 'verified' status.
-     * Allows the update if 'verified' is not in the request, or if it is present but unchanged.
+     * On user profile update, ensures a non-admin user cannot change their own 'verified' or 'isAdmin' status.
+     * Allows the update if the fields are not in the request, or if they are present but unchanged.
      */
-    function isNotChangingVerification() {
+    function isNotChangingSensitiveFields() {
       let isVerifiedUnchanged = !('verified' in request.resource.data) || (request.resource.data.verified == resource.data.verified);
-      return isVerifiedUnchanged;
+      let isAdminUnchanged = !('isAdmin' in request.resource.data) || (request.resource.data.isAdmin == resource.data.isAdmin);
+      return isVerifiedUnchanged && isAdminUnchanged;
     }
+
 
     /**
      * On user document creation, ensures the document's internal 'id' field
@@ -135,9 +138,9 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if false;
+      allow list: if isAdmin(); // Only admins can list users
       allow create: if isOwner(userId) && hasValidUserIdOnCreate(userId);
-      allow update: if (isOwner(userId) && isNotChangingVerification()) || isAdmin();
+      allow update: if (isOwner(userId) && isNotChangingSensitiveFields()) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
 
       /**

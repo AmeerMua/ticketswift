@@ -94,12 +94,17 @@
         "verified": {
           "type": "boolean",
           "description": "Indicates whether the user's ID has been verified by an admin."
+        },
+        "isAdmin": {
+          "type": "boolean",
+          "description": "Indicates whether the user has admin privileges."
         }
       },
       "required": [
         "id",
         "email",
-        "verified"
+        "verified",
+        "isAdmin"
       ]
     },
     "Booking": {

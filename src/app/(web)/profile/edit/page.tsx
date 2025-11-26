@@ -70,7 +70,6 @@ export default function EditProfilePage() {
       const userRef = doc(firestore, 'users', user.uid);
       updateDocumentNonBlocking(userRef, { 
         name: values.displayName,
-        verified: userData.verified // Preserve the existing verification status
       });
 
       toast({

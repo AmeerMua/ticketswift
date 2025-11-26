@@ -1,6 +1,6 @@
 'use client';
 
-import { Ticket, Menu, User as UserIcon, LogOut } from 'lucide-react';
+import { Ticket, Menu, User as UserIcon, LogOut, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,7 +28,7 @@ const navLinks = [
 
 export function Header() {
   const pathname = usePathname();
-  const { user, isUserLoading } = useUser();
+  const { user, userData, isUserLoading } = useUser();
   const auth = useAuth();
 
   const handleSignOut = () => {
@@ -60,6 +60,19 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            {userData?.isAdmin && (
+              <Link
+                href="/admin/dashboard"
+                className={cn(
+                  'transition-colors hover:text-foreground/80 font-semibold',
+                  pathname.startsWith('/admin')
+                    ? 'text-primary'
+                    : 'text-foreground/60'
+                )}
+              >
+                Admin
+              </Link>
+            )}
           </nav>
         </div>
 
@@ -97,7 +110,20 @@ export function Header() {
                 >
                   {link.label}
                 </Link>
-            ))}
+              ))}
+               {userData?.isAdmin && (
+                <Link
+                  href="/admin/dashboard"
+                  className={cn(
+                    'transition-colors hover:text-foreground/80 font-semibold',
+                     pathname.startsWith('/admin')
+                    ? 'text-primary'
+                    : 'text-foreground/60'
+                  )}
+                >
+                  Admin
+                </Link>
+              )}
               </div>
             </div>
           </SheetContent>
@@ -138,6 +164,14 @@ export function Header() {
                       <span>Profile</span>
                     </Link>
                   </DropdownMenuItem>
+                  {userData?.isAdmin && (
+                     <DropdownMenuItem asChild>
+                        <Link href="/admin/dashboard">
+                            <Shield className="mr-2 h-4 w-4" />
+                            <span>Admin Panel</span>
+                        </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
