@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 
 const links = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/events', label: 'Events', icon: Calendar },
   { href: '/admin/users', label: 'Users', icon: Users },
 ];
@@ -31,7 +31,7 @@ export function AdminSidebar() {
   return (
     <Sidebar>
       <SidebarHeader>
-        <Link href="/admin/dashboard" className="flex items-center gap-2">
+        <Link href="/admin" className="flex items-center gap-2">
           <Ticket className="w-6 h-6 text-primary" />
           <span className="text-lg font-semibold font-headline">TicketSwift</span>
         </Link>

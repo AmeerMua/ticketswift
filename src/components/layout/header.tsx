@@ -62,7 +62,7 @@ export function Header() {
             ))}
             {userData?.isAdmin && (
               <Link
-                href="/admin/dashboard"
+                href="/admin"
                 className={cn(
                   'transition-colors hover:text-foreground/80 font-semibold',
                   pathname.startsWith('/admin')
@@ -113,7 +113,7 @@ export function Header() {
               ))}
                {userData?.isAdmin && (
                 <Link
-                  href="/admin/dashboard"
+                  href="/admin"
                   className={cn(
                     'transition-colors hover:text-foreground/80 font-semibold',
                      pathname.startsWith('/admin')
@@ -166,7 +166,7 @@ export function Header() {
                   </DropdownMenuItem>
                   {userData?.isAdmin && (
                      <DropdownMenuItem asChild>
-                        <Link href="/admin/dashboard">
+                        <Link href="/admin">
                             <Shield className="mr-2 h-4 w-4" />
                             <span>Admin Panel</span>
                         </Link>
