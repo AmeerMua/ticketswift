@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { useCollection, useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -55,11 +55,27 @@ export default function AdminUsersPage() {
     const handleVerification = (userId: string, newStatus: 'Verified' | 'Rejected') => {
         if (!firestore) return;
         const userRef = doc(firestore, 'users', userId);
-        updateDocumentNonBlocking(userRef, { verificationStatus: newStatus });
+        updateDocumentNonBlocking(userRef, { 
+            verificationStatus: newStatus,
+            verified: newStatus === 'Verified' 
+        });
         toast({
             title: `User ${newStatus}`,
             description: `The user's verification status has been updated.`,
         })
+    }
+    
+    const handleAdminToggle = (user) => {
+        if(!firestore) return;
+
+        const userRef = doc(firestore, 'users', user.id);
+        const newAdminStatus = !user.isAdmin;
+        updateDocumentNonBlocking(userRef, { isAdmin: newAdminStatus });
+
+        toast({
+            title: `User Role Updated`,
+            description: `${user.name} has been ${newAdminStatus ? 'made an admin' : 'removed as an admin'}.`,
+        });
     }
 
   return (
@@ -73,8 +89,8 @@ export default function AdminUsersPage() {
       
       <Card>
         <CardHeader>
-            <CardTitle>User Verification</CardTitle>
-            <CardDescription>Approve or reject user ID card submissions for account verification.</CardDescription>
+            <CardTitle>User Management</CardTitle>
+            <CardDescription>Approve or reject user ID card submissions and manage admin privileges.</CardDescription>
         </CardHeader>
         <CardContent>
             {isLoading && (
@@ -96,7 +112,8 @@ export default function AdminUsersPage() {
                 <Alert variant="destructive">
                     <XCircle className="h-4 w-4" />
                     <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>Failed to load users. Please check your connection or permissions.</AlertDescription>
+
+                    <AlertDescription>{error.message || 'Failed to load users. Please check your connection or permissions.'}</AlertDescription>
                 </Alert>
             )}
           {!isLoading && !error && (
@@ -105,7 +122,8 @@ export default function AdminUsersPage() {
                 <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead className='text-center'>Status</TableHead>
+                    <TableHead className='text-center'>ID Status</TableHead>
+                    <TableHead className='text-center'>Role</TableHead>
                     <TableHead className='text-right'>
                     <span className="sr-only">Actions</span>
                     </TableHead>
@@ -127,9 +145,14 @@ export default function AdminUsersPage() {
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell className="text-center">
-                            <Badge variant={config.variant} className='gap-1.5'>
-                                <Icon className={`h-3.5 w-3.5 ${config.className}`} />
-                                {status}
+                            <Badge variant={user.verified ? 'default' : config.variant} className='gap-1.5'>
+                                <Icon className={`h-3.5 w-3.5 ${user.verified ? '' : config.className}`} />
+                                {user.verified ? 'Verified' : status}
+                            </Badge>
+                        </TableCell>
+                         <TableCell className="text-center">
+                            <Badge variant={user.isAdmin ? "secondary" : "outline"}>
+                                {user.isAdmin ? "Admin" : "User"}
                             </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -170,6 +193,9 @@ export default function AdminUsersPage() {
                                         <DropdownMenuSeparator />
                                     </>
                                 )}
+                                <DropdownMenuItem onClick={() => handleAdminToggle(user)}>
+                                    {user.isAdmin ? 'Remove Admin' : 'Make Admin'}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem disabled>View Profile</DropdownMenuItem>
                                 <DropdownMenuItem disabled>Suspend Account</DropdownMenuItem>
                             </DropdownMenuContent>
