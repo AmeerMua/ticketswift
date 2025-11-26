@@ -7,9 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { MailWarning } from 'lucide-react';
+import { MailWarning, Edit } from 'lucide-react';
 import { sendEmailVerification } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser();
@@ -71,9 +72,17 @@ export default function ProfilePage() {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-xl mx-auto">
         <Card>
-          <CardHeader>
-            <CardTitle className="font-headline text-2xl">User Profile</CardTitle>
-            <CardDescription>View and manage your account details.</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className="font-headline text-2xl">User Profile</CardTitle>
+                <CardDescription>View and manage your account details.</CardDescription>
+            </div>
+            <Button asChild variant="outline" size="icon">
+                <Link href="/profile/edit">
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Edit Profile</span>
+                </Link>
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             {!user.emailVerified && (
