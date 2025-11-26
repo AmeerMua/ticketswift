@@ -1,14 +1,14 @@
 /**
  * This ruleset enforces a security model with two primary roles: Users and Admins.
  * - Core Philosophy: The default posture is to deny all access. Rules then grant specific
- *   permissions. Admins, identified by a document in the `/admins` collection, have
+ *   permissions. Admins, identified by the `isAdmin` flag on their user document, have
  *   broad access for management. Regular users have restricted access, primarily to their
  *   own data and public information.
  * - Data Structure: Data is organized into a top-level public `/events` collection and a
  *   user-private `/users` collection. Each user's data, including their bookings, is
  *   nested under their unique user ID (`/users/{userId}`), creating a clear ownership hierarchy.
  * - Key Security Decisions:
- *   - Admin access is managed via an `/admins` collection (Database-Based Access Control).
+ *   - Admin access is managed via an `isAdmin` boolean field on the user's own document.
  *   - User enumeration is prevented by disallowing `list` operations on the top-level `/users` collection.
  *   - Public data like events and ticket categories is readable by anyone, but writable only by admins.
  *   - A critical business rule is enforced: only users with `verified == true` on their user
@@ -18,8 +18,7 @@
  *   requests by checking the document's `userId` field against the user's auth token, without
  *   needing extra database reads.
  * - Structural Segregation: Public data (`/events`) is stored separately from user-specific
- *   private data (`/users`), and administrative roles are in their own
- *   dedicated collection. This separation simplifies rules and improves query performance.
+ *   private data (`/users`). This separation simplifies rules and improves query performance.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -40,10 +39,10 @@ service cloud.firestore {
 
     /**
      * Checks if the requesting user has an admin role.
-     * Admin status is conferred by the existence of a document in the admins collection.
+     * Admin status is conferred by the `isAdmin` flag on their user document.
      */
     function isAdmin() {
-      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
     /**
@@ -145,20 +144,6 @@ service cloud.firestore {
         allow update: if false; // Bookings are immutable once created
         allow delete: if isOwner(userId) || isAdmin();
       }
-    }
-
-    /**
-     * @description Admin role management. Existence of a document here grants admin rights. Only other admins can manage this collection.
-     * @path /admins/{userId}
-     * @allow (create, delete) An existing admin creates or deletes a document to manage other admin roles.
-     * @deny (get, list) Reading or listing admins is restricted to prevent enumeration of privileged users.
-     * @principle Secures role-granting functionality.
-     */
-    match /admins/{userId} {
-      allow get: if isAdmin();
-      allow list: if false; // Disallow listing all admins for security
-      allow create, delete: if isAdmin();
-      allow update: if false; // Doc is either there or not, no updates needed
     }
   }
 }

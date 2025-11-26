@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { useCollection, useFirestore, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
