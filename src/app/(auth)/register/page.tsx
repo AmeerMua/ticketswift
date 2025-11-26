@@ -67,8 +67,8 @@ export default function RegisterPage() {
               id: user.uid,
               email: user.email,
               verified: false,
-              name: name,
               isAdmin: false, // Default to not an admin
+              name: name,
             },
             { merge: true }
           );
