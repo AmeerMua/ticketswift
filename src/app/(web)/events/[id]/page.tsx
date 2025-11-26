@@ -165,7 +165,7 @@ export default function EventDetailsPage() {
                     </div>
                 )}
                  {bookingDisabled && (
-                    <div className="text-center p-3 rounded-md border border-destructive/50 bg-destructive/10 text-destructive-foreground text-sm">
+                    <div className="text-center p-3 rounded-md border border-destructive/50 bg-destructive/10 text-red-900 dark:text-red-300 text-sm">
                         {getDisabledMessage()}
                     </div>
                  )}
