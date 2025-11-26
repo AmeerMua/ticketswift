@@ -30,13 +30,6 @@ service cloud.firestore {
     // ----------------------------------------------------------------------
 
     /**
-     * Checks if the user is authenticated.
-     */
-    // function isSignedIn() {
-    //   return request.auth != null;
-    // }
-
-    /**
      * Checks if the currently authenticated user's UID matches the given userId.
      * This is the foundation for the ownership model.
      * @param userId The user ID to check against.
@@ -108,9 +101,7 @@ service cloud.firestore {
      */
     match /events/{eventId} {
       allow get, list: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
 
       /**
        * @description Ticket categories for an event. Inherits the same access pattern as the parent event.
@@ -121,9 +112,7 @@ service cloud.firestore {
        */
       match /ticketCategories/{ticketCategoryId} {
         allow get, list: if true;
-        allow create: if isAdmin();
-        allow update: if isAdmin();
-        allow delete: if isAdmin();
+        allow create, update, delete: if isAdmin();
       }
     }
 
@@ -153,7 +142,7 @@ service cloud.firestore {
       match /bookings/{bookingId} {
         allow get, list: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) && isVerifiedUser() && hasValidBookingUserIdOnCreate(userId) && isBookingWithinTicketLimit();
-        allow update: if false;
+        allow update: if false; // Bookings are immutable once created
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
@@ -161,17 +150,15 @@ service cloud.firestore {
     /**
      * @description Admin role management. Existence of a document here grants admin rights. Only other admins can manage this collection.
      * @path /admins/{userId}
-     * @allow (create) An existing admin creates a document for 'user789' to make them an admin.
-     * @deny (get) A non-admin user attempts to read a document to see if someone else is an admin.
-     * @deny (list) Any user, including an admin, attempts to list all admins.
-     * @principle Secures role-granting functionality and prevents enumeration of privileged users.
+     * @allow (create, delete) An existing admin creates or deletes a document to manage other admin roles.
+     * @deny (get, list) Reading or listing admins is restricted to prevent enumeration of privileged users.
+     * @principle Secures role-granting functionality.
      */
     match /admins/{userId} {
       allow get: if isAdmin();
-      allow list: if false;
-      allow create: if isAdmin();
-      allow update: if false;
-      allow delete: if isAdmin();
+      allow list: if false; // Disallow listing all admins for security
+      allow create, delete: if isAdmin();
+      allow update: if false; // Doc is either there or not, no updates needed
     }
   }
 }
