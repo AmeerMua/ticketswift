@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet } from 'lucide-react';
+import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet, Upload, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -10,13 +10,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -28,10 +26,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { useCollection, useFirestore, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, writeBatch } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { format } from 'date-fns';
+import { Booking, Ticket } from '@/lib/types';
 
 const statusConfig = {
     Verified: { variant: "default" as const, icon: CheckCircle, className: "text-green-600" },
@@ -39,6 +40,104 @@ const statusConfig = {
     Rejected: { variant: "destructive" as const, icon: XCircle, className: "" },
     NotSubmitted: { variant: "outline" as const, icon: ShieldQuestion, className: "" },
 };
+
+const bookingStatusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
+  Confirmed: 'default',
+  PaymentPending: 'secondary',
+  Cancelled: 'destructive',
+};
+
+function UserDetails({ user }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const bookingsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, `users/${user.id}/bookings`);
+    }, [firestore, user.id]);
+    
+    const { data: bookings, isLoading: bookingsLoading, error: bookingsError } = useCollection<Booking>(bookingsQuery);
+
+    const handlePaymentVerification = (bookingId: string) => {
+        if (!firestore || !user) return;
+        const bookingRef = doc(firestore, `users/${user.id}/bookings`, bookingId);
+        updateDocumentNonBlocking(bookingRef, { status: 'Confirmed' });
+        toast({
+            title: 'Payment Verified',
+            description: `Booking ${bookingId} has been confirmed.`,
+        });
+    };
+
+    return (
+        <div className='grid md:grid-cols-2 gap-6 pt-2 pb-4 px-4'>
+            <div>
+                <h4 className="font-semibold text-lg mb-2">ID Verification</h4>
+                <div className='p-4 border rounded-lg bg-muted/30'>
+                    {user.verificationStatus === 'Pending' ? (
+                        <>
+                            {/* In a real app, user.idCardUrl would point to the uploaded image in Firebase Storage */}
+                            <p className='text-sm text-muted-foreground mb-2'>User submitted the following ID for verification:</p>
+                             <div className="relative aspect-video w-full overflow-hidden rounded-md border">
+                                <Image 
+                                    src={'https://picsum.photos/seed/id-card-demo/600/400'} 
+                                    alt="ID Card" 
+                                    fill 
+                                    className='object-cover'
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        <div className='text-center py-8'>
+                            <p className='text-muted-foreground'>
+                                {user.verificationStatus === 'NotSubmitted' && 'User has not submitted an ID.'}
+                                {user.verificationStatus === 'Verified' && 'User ID has been verified.'}
+                                {user.verificationStatus === 'Rejected' && 'User ID submission was rejected.'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+             <div>
+                <h4 className="font-semibold text-lg mb-2">Booking History</h4>
+                <div className='p-4 border rounded-lg bg-muted/30 max-h-96 overflow-y-auto'>
+                    {bookingsLoading && <p>Loading bookings...</p>}
+                    {bookingsError && <p className='text-destructive'>Error loading bookings.</p>}
+                    {!bookingsLoading && !bookingsError && (!bookings || bookings.length === 0) && (
+                        <div className='text-center py-8'>
+                            <p className='text-muted-foreground'>This user has no bookings.</p>
+                        </div>
+                    )}
+                    <div className='space-y-3'>
+                        {(bookings || []).map(booking => (
+                             <div key={booking.id} className="p-3 border bg-background rounded-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                <div className="flex-grow">
+                                    <h3 className="font-semibold text-sm">{booking.eventName}</h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {booking.eventDate ? format(new Date(booking.eventDate), 'PPP') : 'Date N/A'}
+                                    </p>
+                                     <p className="text-xs text-muted-foreground">
+                                        {booking.numberOfTickets} Ticket{booking.numberOfTickets > 1 ? 's' : ''} &bull; ${booking.totalAmount.toFixed(2)}
+                                    </p>
+                                </div>
+                                <div className="flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto">
+                                    <Badge variant={bookingStatusVariant[booking.status] || 'outline'} className="self-end text-xs">
+                                        {booking.status}
+                                    </Badge>
+                                    {booking.status === 'PaymentPending' && (
+                                        <Button size='sm' className='h-7 text-xs' onClick={() => handlePaymentVerification(booking.id)}>
+                                            <CheckCircle className='mr-2 h-3 w-3'/> Verify Payment
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
 export default function AdminUsersPage() {
     const firestore = useFirestore();
@@ -77,11 +176,6 @@ export default function AdminUsersPage() {
         });
     }
 
-    // A mock function to check for pending payments. In a real app, you'd query their bookings subcollection.
-    const hasPendingPayment = (userId: string) => {
-        return userId === 'user-1'; // Mocking user-1 has a pending payment for demo
-    }
-
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
@@ -100,7 +194,7 @@ export default function AdminUsersPage() {
             {isLoading && (
                 <div className='space-y-2'>
                     {[...Array(5)].map((_, i) => (
-                        <div key={i} className="flex items-center p-4 space-x-4">
+                        <div key={i} className="flex items-center p-4 space-x-4 border rounded-lg">
                             <Skeleton className="h-10 w-10 rounded-full" />
                             <div className="space-y-2 flex-1">
                                 <Skeleton className="h-4 w-1/4" />
@@ -121,115 +215,43 @@ export default function AdminUsersPage() {
                 </Alert>
             )}
           {!isLoading && !error && (
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className='text-center'>ID Status</TableHead>
-                    <TableHead className='text-center'>Role</TableHead>
-                    <TableHead className='text-right'>
-                    <span className="sr-only">Actions</span>
-                    </TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
+             <Accordion type="single" collapsible className="w-full">
                 {(users || []).map((user) => {
                     const status = user.verificationStatus || 'NotSubmitted';
                     const config = statusConfig[status];
                     const Icon = config.icon;
+
+                    // A mock check for pending payments based on user ID for demo
+                    const hasPendingPayment = user.id === 'user-1';
+
                     return (
-                        <TableRow key={user.id}>
-                        <TableCell className="font-medium flex items-center gap-3">
-                            <Image src={`https://i.pravatar.cc/150?u=${user.id}`} alt={user.name} width={40} height={40} className="rounded-full" />
-                            <div>
-                                <div className="font-medium">{user.name}</div>
-                                <div className="text-sm text-muted-foreground">ID: {user.id}</div>
-                            </div>
-                        </TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell className="text-center">
-                            <Badge variant={user.verified ? 'default' : config.variant} className='gap-1.5'>
-                                <Icon className={`h-3.5 w-3.5 ${user.verified ? '' : config.className}`} />
-                                {user.verified ? 'Verified' : status}
-                            </Badge>
-                        </TableCell>
-                         <TableCell className="text-center">
-                            <div className='flex items-center justify-center gap-2'>
-                                <Badge variant={user.isAdmin ? "secondary" : "outline"}>
-                                    {user.isAdmin ? "Admin" : "User"}
-                                </Badge>
-                                {hasPendingPayment(user.id) && (
-                                     <Badge variant="destructive" className='gap-1.5'>
-                                        <Wallet className='h-3.5 w-3.5'/>
-                                        Payment
-                                     </Badge>
-                                )}
-                            </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Toggle menu</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                {status === 'Pending' && (
-                                    <>
-                                        <DropdownMenuItem 
-                                            className="text-green-600 focus:bg-green-100 focus:text-green-700"
-                                            onClick={() => handleVerification(user.id, 'Verified')}
-                                        >
-                                            Approve ID
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem 
-                                            className="text-red-600 focus:bg-red-100 focus:text-red-700"
-                                            onClick={() => handleVerification(user.id, 'Rejected')}
-                                        >
-                                            Reject ID
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                    </>
-                                )}
-                                 {status === 'Rejected' && (
-                                    <>
-                                        <DropdownMenuItem 
-                                            className="text-green-600 focus:bg-green-100 focus:text-green-700"
-                                            onClick={() => handleVerification(user.id, 'Verified')}
-                                        >
-                                            Approve ID
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                    </>
-                                )}
-                                {hasPendingPayment(user.id) && (
-                                    <>
-                                         <DropdownMenuItem
-                                            className="text-blue-600 focus:bg-blue-100 focus:text-blue-700"
-                                         >
-                                            Verify Payment
-                                         </DropdownMenuItem>
-                                         <DropdownMenuSeparator />
-                                    </>
-                                )}
-                                <DropdownMenuItem onClick={() => handleAdminToggle(user)}>
-                                    {user.isAdmin ? 'Remove Admin' : 'Make Admin'}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem disabled>View Profile</DropdownMenuItem>
-                                <DropdownMenuItem disabled>Suspend Account</DropdownMenuItem>
-                            </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                        </TableRow>
+                        <AccordionItem value={user.id} key={user.id}>
+                            <AccordionTrigger className='px-4 hover:bg-muted/50 rounded-md data-[state=open]:bg-muted/50 data-[state=open]:rounded-b-none transition-colors'>
+                                <div className='flex items-center gap-4 flex-1 text-left'>
+                                    <Image src={`https://i.pravatar.cc/150?u=${user.id}`} alt={user.name} width={40} height={40} className="rounded-full" />
+                                    <div className='flex-1'>
+                                        <p className="font-semibold">{user.name}</p>
+                                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                                    </div>
+                                    <div className='flex flex-col md:flex-row items-center gap-2'>
+                                        <Badge variant={user.verified ? 'default' : config.variant} className='gap-1.5'>
+                                            <Icon className={`h-3.5 w-3.5 ${user.verified ? '' : config.className}`} />
+                                            {user.verified ? 'Verified' : status}
+                                        </Badge>
+                                         <Badge variant={user.isAdmin ? "secondary" : "outline"}>
+                                            {user.isAdmin ? "Admin" : "User"}
+                                        </Badge>
+                                    </div>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <UserDetails user={user} />
+                            </AccordionContent>
+                        </AccordionItem>
                     )
                 })}
-                </TableBody>
-            </Table>
+            </Accordion>
           )}
-          
         </CardContent>
       </Card>
     </div>
