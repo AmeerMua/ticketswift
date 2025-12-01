@@ -70,6 +70,25 @@ export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) 
     });
 }
 
+/**
+ * Initiates an updateDoc operation specifically for a user cancelling their own booking.
+ * Does NOT await the write operation internally.
+ */
+export function cancelUserBooking(docRef: DocumentReference) {
+    const cancellationData = { status: 'Cancelled' };
+    updateDoc(docRef, cancellationData)
+      .catch(error => {
+        errorEmitter.emit(
+          'permission-error',
+          new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: cancellationData,
+          })
+        )
+      });
+  }
+
 
 /**
  * Initiates a deleteDoc operation for a document reference.

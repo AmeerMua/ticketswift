@@ -1,13 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { useUser } from '@/firebase';
+import { useUser, cancelUserBooking, useFirestore } from '@/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 import { TicketPDF } from './ticket-pdf';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useToast } from '@/hooks/use-toast';
+import { doc } from 'firebase/firestore';
+
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
   Confirmed: 'default',
@@ -17,6 +31,8 @@ const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 
 
 export function BookingHistory() {
   const { user, userBookings, isUserBookingsLoading } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
 
   const handleDownload = async (booking: any) => {
@@ -62,6 +78,18 @@ export function BookingHistory() {
     pdf.save(`TicketSwift-Tickets-${booking.id}.pdf`);
     setIsGenerating(null);
   };
+  
+  const handleCancelBooking = (bookingId: string) => {
+    if (!user || !firestore) return;
+    
+    const bookingRef = doc(firestore, `users/${user.uid}/bookings`, bookingId);
+    cancelUserBooking(bookingRef);
+
+    toast({
+        title: "Booking Cancelled",
+        description: "Your booking has been successfully cancelled.",
+    });
+  }
 
   return (
     <>
@@ -92,24 +120,56 @@ export function BookingHistory() {
                 <Badge variant={statusVariant[booking.status] || 'outline'} className="self-end">
                     {booking.status}
                 </Badge>
-                <Button 
-                    size="sm"
-                    disabled={booking.status !== 'Confirmed' || isGenerating === booking.id}
-                    onClick={() => handleDownload(booking)}
-                    className='mt-2'
-                >
-                    {isGenerating === booking.id ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                        </>
-                    ) : (
-                         <>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download Ticket
-                         </>
-                    )}
-                </Button>
+                {booking.status === 'Confirmed' && (
+                    <Button 
+                        size="sm"
+                        disabled={isGenerating === booking.id}
+                        onClick={() => handleDownload(booking)}
+                        className='mt-2'
+                    >
+                        {isGenerating === booking.id ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Generating...
+                            </>
+                        ) : (
+                            <>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download Ticket
+                            </>
+                        )}
+                    </Button>
+                )}
+                {booking.status !== 'Cancelled' && (
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive h-8 text-xs hover:bg-destructive/10 hover:text-destructive mt-1"
+                            >
+                                <Ban className='mr-2 h-3 w-3' />
+                                Cancel Booking
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure you want to cancel?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will permanently cancel your booking for "{booking.eventName}". This action cannot be undone.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Back</AlertDialogCancel>
+                            <AlertDialogAction
+                                className='bg-destructive hover:bg-destructive/90'
+                                onClick={() => handleCancelBooking(booking.id)}>
+                                Yes, Cancel Booking
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
             </div>
           </div>
         ))}

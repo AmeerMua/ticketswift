@@ -86,6 +86,20 @@ service cloud.firestore {
     function hasValidBookingUserIdOnCreate(userId) {
       return request.resource.data.userId == userId;
     }
+    
+    /**
+     * On booking update, ensures a regular user is only changing the 'status' to 'Cancelled'.
+     * This prevents users from confirming their own bookings or changing other details.
+     */
+    function isOnlyCancellingBooking() {
+      let nextData = request.resource.data;
+      let currentData = resource.data;
+      // Check that the new status is 'Cancelled' and the old one was not.
+      return nextData.status == 'Cancelled' 
+             && currentData.status != 'Cancelled'
+             // Use affectedKeys() to ensure ONLY the 'status' field is being changed.
+             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
 
     // ----------------------------------------------------------------------
     // Collection Rules
@@ -141,7 +155,7 @@ service cloud.firestore {
       match /bookings/{bookingId} {
         allow get, list: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) && isVerifiedUser() && hasValidBookingUserIdOnCreate(userId) && isBookingWithinTicketLimit();
-        allow update: if isAdmin(); // Only Admins can update a booking (e.g. to confirm payment)
+        allow update: if isAdmin() || (isOwner(userId) && isOnlyCancellingBooking());
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
