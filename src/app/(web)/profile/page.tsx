@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { MailWarning, Edit, Shield, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
+import { MailWarning, Edit, Shield, ShieldCheck, ShieldAlert, ShieldX, KeySquare } from 'lucide-react';
 import { sendEmailVerification } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -147,9 +147,17 @@ export default function ProfilePage() {
               <p className="font-semibold">Email:</p>
               <p>{user.email}</p>
             </div>
-            <Button onClick={handleSignOut} variant="destructive">
-              Sign Out
-            </Button>
+            <div className="flex flex-wrap gap-2">
+                <Button onClick={handleSignOut} variant="destructive">
+                  Sign Out
+                </Button>
+                <Button asChild variant="outline">
+                    <Link href="/profile/change-password">
+                        <KeySquare className="mr-2 h-4 w-4" />
+                        Change Password
+                    </Link>
+                </Button>
+            </div>
           </CardContent>
         </Card>
         <BookingHistory />
