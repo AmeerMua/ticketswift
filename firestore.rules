@@ -141,7 +141,7 @@ service cloud.firestore {
       match /bookings/{bookingId} {
         allow get, list: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) && isVerifiedUser() && hasValidBookingUserIdOnCreate(userId) && isBookingWithinTicketLimit();
-        allow update: if false; // Bookings are immutable once created
+        allow update: if isAdmin(); // Only Admins can update a booking (e.g. to confirm payment)
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
