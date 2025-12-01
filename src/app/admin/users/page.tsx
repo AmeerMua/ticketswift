@@ -36,6 +36,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useState } from 'react';
+import { logAuditEvent } from '@/lib/audit';
 
 
 const statusConfig = {
@@ -251,6 +252,15 @@ export default function AdminUsersPage() {
         if (!firestore || !user.id) return;
         const bookingRef = doc(firestore, `users/${user.id}/bookings`, booking.id);
         updateDocumentNonBlocking(bookingRef, { status: 'Cancelled' });
+        
+        logAuditEvent(firestore, {
+          userId: user.id, // The admin is performing the action
+          action: 'cancel-booking-admin',
+          details: {
+            bookingId: booking.id,
+            cancelledUserId: user.id
+          }
+        });
         
         await sendEmail(
             user.email,

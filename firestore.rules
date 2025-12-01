@@ -159,5 +159,17 @@ service cloud.firestore {
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
+    
+    /**
+     * @description Audit logs for tracking important actions.
+     * @path /audit_logs/{logId}
+     * @allow (create) An authenticated user can create their own log entries.
+     * @allow (read, write) Only admins can read or modify audit logs.
+     * @principle Ensures users can log their actions, but cannot read or tamper with the audit trail.
+     */
+    match /audit_logs/{logId} {
+      allow read, update, delete, list: if isAdmin();
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
   }
 }

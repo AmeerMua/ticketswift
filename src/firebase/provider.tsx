@@ -1,6 +1,6 @@
 'use client';
 
-import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect, useRef } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, collection } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
@@ -8,6 +8,7 @@ import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 import { useDoc } from './firestore/use-doc';
 import { useCollection, WithId } from './firestore/use-collection';
 import { Booking } from '@/lib/types';
+import { logAuditEvent } from '@/lib/audit';
 
 
 interface FirebaseProviderProps {
@@ -83,6 +84,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
+  const lastLoggedInUserId = useRef<string | null>(null);
+
   const userDocRef = useMemoFirebase(() => {
       if (!firestore || !userAuthState.user) return null;
       return doc(firestore, 'users', userAuthState.user.uid);
@@ -110,6 +113,17 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth,
       (firebaseUser) => { // Auth state determined
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
+
+        // Log user login event
+        if (firebaseUser && firebaseUser.uid !== lastLoggedInUserId.current) {
+          logAuditEvent(firestore, {
+            userId: firebaseUser.uid,
+            action: 'user-login',
+          });
+          lastLoggedInUserId.current = firebaseUser.uid;
+        } else if (!firebaseUser) {
+          lastLoggedInUserId.current = null;
+        }
       },
       (error) => { // Auth listener error
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
@@ -117,7 +131,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       }
     );
     return () => unsubscribe(); // Cleanup
-  }, [auth]); // Depends on the auth instance
+  }, [auth, firestore]); // Depends on the auth and firestore instances
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {

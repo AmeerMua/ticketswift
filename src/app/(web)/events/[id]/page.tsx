@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentSubmissionDialog } from '@/components/events/payment-submission-dialog';
 import { collection } from 'firebase/firestore';
+import { logAuditEvent } from '@/lib/audit';
 
 export default function EventDetailsPage() {
   const params = useParams();
@@ -144,7 +145,21 @@ export default function EventDetailsPage() {
     };
 
     const bookingsRef = collection(firestore, `users/${user.uid}/bookings`);
-    addDocumentNonBlocking(bookingsRef, bookingData);
+    const bookingDoc = await addDocumentNonBlocking(bookingsRef, bookingData);
+
+    // Log the audit event
+    if (bookingDoc) {
+      logAuditEvent(firestore, {
+        userId: user.uid,
+        action: 'create-booking',
+        details: {
+          bookingId: bookingDoc.id,
+          eventId: event.id,
+          numberOfTickets: totalTickets,
+          totalPrice: totalPrice,
+        },
+      });
+    }
 
     setIsPaymentDialogOpen(false);
     toast({

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 import { doc } from 'firebase/firestore';
+import { logAuditEvent } from '@/lib/audit';
 
 
 const statusVariant: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
@@ -84,6 +85,12 @@ export function BookingHistory() {
     
     const bookingRef = doc(firestore, `users/${user.uid}/bookings`, bookingId);
     cancelUserBooking(bookingRef);
+
+    logAuditEvent(firestore, {
+        userId: user.uid,
+        action: 'cancel-booking-user',
+        details: { bookingId },
+    });
 
     toast({
         title: "Booking Cancelled",

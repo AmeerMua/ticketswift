@@ -147,6 +147,41 @@
         "bookingDate",
         "numberOfTickets"
       ]
+    },
+    "AuditLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AuditLog",
+      "type": "object",
+      "description": "Represents an audit trail entry for a significant user or system action.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the audit log entry."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who performed the action. Can be 'system' for automated actions."
+        },
+        "action": {
+          "type": "string",
+          "description": "A string identifying the action performed (e.g., 'user-login', 'create-booking')."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The ISO 8601 timestamp of when the action occurred."
+        },
+        "details": {
+          "type": "object",
+          "description": "An object containing additional details about the event (e.g., booking ID, event ID)."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "action",
+        "timestamp"
+      ]
     }
   },
   "auth": {
@@ -241,6 +276,22 @@
             {
               "name": "userId",
               "description": "Unique identifier for the user with admin privileges."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/audit_logs/{logId}",
+        "definition": {
+          "entityName": "AuditLog",
+          "schema": {
+            "$ref": "#/backend/entities/AuditLog"
+          },
+          "description": "Stores audit trail records for significant actions. Writable by authenticated users for their own actions, and by admins. Read-only for admins.",
+          "params": [
+            {
+              "name": "logId",
+              "description": "Unique identifier for the audit log entry."
             }
           ]
         }
