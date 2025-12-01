@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useUser,
@@ -19,8 +19,16 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { UploadCloud, File, X, Loader2 } from 'lucide-react';
+import { UploadCloud, File, X, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
+import { verifyIdCard } from '@/ai/flows/verify-id-card-flow';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+type VerificationState = 'idle' | 'verifying' | 'success' | 'error';
+type VerificationResult = {
+    state: VerificationState;
+    message: string | null;
+}
 
 export default function VerifyIdPage() {
   const { user, userData } = useUser();
@@ -30,12 +38,12 @@ export default function VerifyIdPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verification, setVerification] = useState<VerificationResult>({ state: 'idle', message: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      // Basic validation for image files
       if (!selectedFile.type.startsWith('image/')) {
         toast({
           variant: 'destructive',
@@ -47,15 +55,38 @@ export default function VerifyIdPage() {
       setFile(selectedFile);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreview(reader.result as string);
+        const dataUrl = reader.result as string;
+        setPreview(dataUrl);
+        runAiVerification(dataUrl);
       };
       reader.readAsDataURL(selectedFile);
     }
   };
 
+  const runAiVerification = async (photoDataUri: string) => {
+    setVerification({ state: 'verifying', message: 'Analyzing ID card...' });
+    try {
+        const result = await verifyIdCard({ photoDataUri });
+        if (result.isIdCard && result.hasFace) {
+            let message = "AI verification successful. Ready for submission.";
+            if (result.dateOfBirth) {
+                message += ` DOB found: ${result.dateOfBirth}.`;
+            }
+            setVerification({ state: 'success', message });
+        } else {
+            setVerification({ state: 'error', message: result.reason || "This does not appear to be a valid ID card. Please try again." });
+        }
+    } catch (e) {
+        console.error(e);
+        setVerification({ state: 'error', message: 'An error occurred during AI verification. You can still try to submit.' });
+    }
+  }
+
+
   const handleRemoveFile = () => {
     setFile(null);
     setPreview(null);
+    setVerification({ state: 'idle', message: null });
     if(fileInputRef.current) {
         fileInputRef.current.value = '';
     }
@@ -101,6 +132,8 @@ export default function VerifyIdPage() {
       setIsSubmitting(false);
     }
   };
+  
+  const isSubmitDisabled = !file || isSubmitting || verification.state === 'verifying' || verification.state === 'error';
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -112,7 +145,7 @@ export default function VerifyIdPage() {
             </CardTitle>
             <CardDescription>
               Please upload a clear image of a government-issued ID card (e.g.,
-              Driver's License, Passport).
+              Driver's License, Passport). Our AI will pre-verify your submission.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -124,11 +157,11 @@ export default function VerifyIdPage() {
             )}
             <div
               className="flex items-center justify-center w-full"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => !preview && fileInputRef.current?.click()}
             >
               <label
                 htmlFor="dropzone-file"
-                className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-muted"
+                className={`flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg ${!preview ? 'cursor-pointer' : ''} bg-card hover:bg-muted`}
               >
                 {preview ? (
                   <div className="relative w-full h-full">
@@ -159,15 +192,16 @@ export default function VerifyIdPage() {
                   onChange={handleFileChange}
                   ref={fileInputRef}
                   accept="image/png, image/jpeg, image/gif"
+                  disabled={!!preview}
                 />
               </label>
             </div>
 
             {file && (
               <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   <File className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm font-medium truncate max-w-xs">
+                  <span className="text-sm font-medium truncate">
                     {file.name}
                   </span>
                 </div>
@@ -181,6 +215,21 @@ export default function VerifyIdPage() {
                 </Button>
               </div>
             )}
+
+            {verification.state !== 'idle' && (
+                 <Alert variant={verification.state === 'error' ? 'destructive' : 'default'}>
+                    {verification.state === 'verifying' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {verification.state === 'error' && <AlertCircle className="h-4 w-4" />}
+                    {verification.state === 'success' && <CheckCircle className="h-4 w-4" />}
+                    <AlertTitle>
+                        {verification.state === 'verifying' && 'Verifying...'}
+                        {verification.state === 'error' && 'Verification Failed'}
+                        {verification.state === 'success' && 'Verification Successful'}
+                    </AlertTitle>
+                    <AlertDescription>{verification.message}</AlertDescription>
+                </Alert>
+            )}
+
           </CardContent>
           <CardFooter className="flex justify-end gap-2">
             <Button
@@ -190,7 +239,7 @@ export default function VerifyIdPage() {
             >
               Do it Later
             </Button>
-            <Button onClick={handleSubmit} disabled={!file || isSubmitting}>
+            <Button onClick={handleSubmit} disabled={isSubmitDisabled}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
