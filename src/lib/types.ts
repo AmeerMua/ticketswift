@@ -34,7 +34,8 @@ export type Booking = {
   tickets: Ticket[];
   totalAmount: number;
   bookingDate: string;
-  status: 'Confirmed' | 'Pending' | 'Cancelled';
+  status: 'Confirmed' | 'Pending' | 'Cancelled' | 'PaymentPending';
+  paymentScreenshotUrl?: string; // URL to the payment screenshot in Firebase Storage
 };
 
 export type Ticket = {

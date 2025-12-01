@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion } from 'lucide-react';
+import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -77,19 +77,24 @@ export default function AdminUsersPage() {
         });
     }
 
+    // A mock function to check for pending payments. In a real app, you'd query their bookings subcollection.
+    const hasPendingPayment = (userId: string) => {
+        return userId === 'user-1'; // Mocking user-1 has a pending payment for demo
+    }
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <div>
             <h2 className="text-3xl font-bold tracking-tight font-headline">Users</h2>
-            <p className="text-muted-foreground">Manage user accounts and ID verification.</p>
+            <p className="text-muted-foreground">Manage user accounts, ID verification, and payments.</p>
         </div>
       </div>
       
       <Card>
         <CardHeader>
             <CardTitle>User Management</CardTitle>
-            <CardDescription>Approve or reject user ID card submissions and manage admin privileges.</CardDescription>
+            <CardDescription>Approve or reject user submissions and manage roles.</CardDescription>
         </CardHeader>
         <CardContent>
             {isLoading && (
@@ -150,9 +155,17 @@ export default function AdminUsersPage() {
                             </Badge>
                         </TableCell>
                          <TableCell className="text-center">
-                            <Badge variant={user.isAdmin ? "secondary" : "outline"}>
-                                {user.isAdmin ? "Admin" : "User"}
-                            </Badge>
+                            <div className='flex items-center justify-center gap-2'>
+                                <Badge variant={user.isAdmin ? "secondary" : "outline"}>
+                                    {user.isAdmin ? "Admin" : "User"}
+                                </Badge>
+                                {hasPendingPayment(user.id) && (
+                                     <Badge variant="destructive" className='gap-1.5'>
+                                        <Wallet className='h-3.5 w-3.5'/>
+                                        Payment
+                                     </Badge>
+                                )}
+                            </div>
                         </TableCell>
                         <TableCell className="text-right">
                         <DropdownMenu>
@@ -190,6 +203,16 @@ export default function AdminUsersPage() {
                                             Approve ID
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
+                                    </>
+                                )}
+                                {hasPendingPayment(user.id) && (
+                                    <>
+                                         <DropdownMenuItem
+                                            className="text-blue-600 focus:bg-blue-100 focus:text-blue-700"
+                                         >
+                                            Verify Payment
+                                         </DropdownMenuItem>
+                                         <DropdownMenuSeparator />
                                     </>
                                 )}
                                 <DropdownMenuItem onClick={() => handleAdminToggle(user)}>

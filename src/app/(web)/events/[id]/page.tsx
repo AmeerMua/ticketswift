@@ -18,15 +18,20 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Calendar, Clock, MapPin, Ticket, Minus, Plus } from 'lucide-react';
 import { format } from 'date-fns';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { PaymentSubmissionDialog } from '@/components/events/payment-submission-dialog';
+import { collection } from 'firebase/firestore';
 
 export default function EventDetailsPage() {
   const params = useParams();
   const id = params.id as string;
   const { user, userData } = useUser();
+  const firestore = useFirestore();
   const { toast } = useToast();
+
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   const event = useMemo(() => mockEvents.find((e) => e.id === id), [id]);
 
@@ -99,10 +104,53 @@ export default function EventDetailsPage() {
         }
     }
     return null;
-};
+  };
 
+  const handleBookingSubmit = async (screenshotFile: File) => {
+    if (!user || !firestore) return;
+
+    // In a real app, you would upload the screenshotFile to Firebase Storage first
+    // and get the download URL. For this demo, we'll use a placeholder.
+    const screenshotUrl = 'placeholder/screenshot.jpg';
+    
+    const bookingData = {
+        userId: user.uid,
+        eventId: event.id,
+        tickets: Object.entries(ticketQuantities)
+            .filter(([, qty]) => qty > 0)
+            .map(([categoryId, quantity]) => ({
+                categoryId,
+                quantity,
+                categoryName: event.ticketCategories.find(c => c.id === categoryId)?.name,
+                price: event.ticketCategories.find(c => c.id === categoryId)?.price
+            })),
+        totalAmount: totalPrice,
+        bookingDate: new Date().toISOString(),
+        status: 'PaymentPending',
+        paymentScreenshotUrl: screenshotUrl,
+    };
+
+    const bookingsRef = collection(firestore, `users/${user.uid}/bookings`);
+    addDocumentNonBlocking(bookingsRef, bookingData);
+
+    setIsPaymentDialogOpen(false);
+    toast({
+      title: 'Submission Received!',
+      description: 'Thank you for purchasing tickets. After confirmation of your payment, you will be able to download them from your profile.',
+    });
+
+    // Reset quantities
+    setTicketQuantities(event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {}));
+  };
 
   return (
+    <>
+    <PaymentSubmissionDialog 
+        isOpen={isPaymentDialogOpen}
+        onOpenChange={setIsPaymentDialogOpen}
+        onSubmit={handleBookingSubmit}
+        totalPrice={totalPrice}
+    />
     <div className="container mx-auto px-4 py-8">
       <div className="grid md:grid-cols-5 gap-8">
         <div className="md:col-span-3">
@@ -195,7 +243,7 @@ export default function EventDetailsPage() {
                         {getDisabledMessage()}
                     </div>
                  )}
-              <Button size="lg" disabled={totalTickets === 0 || bookingDisabled}>
+              <Button size="lg" disabled={totalTickets === 0 || bookingDisabled} onClick={() => setIsPaymentDialogOpen(true)}>
                 {totalTickets > 0 ? `Book ${totalTickets} Ticket${totalTickets > 1 ? 's' : ''}` : 'Select Tickets'}
               </Button>
             </CardFooter>
@@ -203,5 +251,6 @@ export default function EventDetailsPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
