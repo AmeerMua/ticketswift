@@ -21,8 +21,8 @@ export default function AuthLayout({
 
     if (user) {
       if (userData?.verified) {
-        // If ID is verified, they can go anywhere, usually profile or home
-        router.push('/profile');
+        // If ID is verified, redirect to the home page.
+        router.push('/');
       } else {
         // If ID is not verified, follow the verification flow
         switch (userData?.verificationStatus) {
