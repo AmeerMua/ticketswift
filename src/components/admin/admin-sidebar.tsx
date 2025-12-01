@@ -1,8 +1,9 @@
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Calendar, Users, Ticket, Settings } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, Ticket, Settings, History } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -19,6 +20,7 @@ const links = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/events', label: 'Events', icon: Calendar },
   { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/logs', label: 'Logs', icon: History },
 ];
 
 const bottomLinks = [
