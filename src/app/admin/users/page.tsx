@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet, Upload, User as UserIcon, Check, X } from 'lucide-react';
+import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet, Upload, User as UserIcon, Check, X, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -24,6 +24,19 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { Booking } from '@/lib/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useState } from 'react';
+
 
 const statusConfig = {
     Verified: { variant: "default" as const, icon: CheckCircle, className: "text-green-600" },
@@ -52,7 +65,7 @@ Body: ${body}
 };
 
 
-function UserDetails({ user, onVerifyId, onVerifyPayment }) {
+function UserDetails({ user, onVerifyId, onVerifyPayment, onCancelBooking }) {
     const firestore = useFirestore();
     
     const bookingsQuery = useMemoFirebase(() => {
@@ -143,6 +156,34 @@ function UserDetails({ user, onVerifyId, onVerifyPayment }) {
                                         </div>
                                     </div>
                                 )}
+                                {booking.status !== 'Cancelled' && (
+                                    <div className='flex justify-end'>
+                                         <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button size="sm" variant="ghost" className="text-destructive h-7 text-xs hover:bg-destructive/10 hover:text-destructive">
+                                                    <Ban className='mr-2 h-3 w-3' />
+                                                    Cancel Booking
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure you want to cancel?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will cancel the booking and cannot be undone. A notification will be sent to the user.
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>Back</AlertDialogCancel>
+                                                <AlertDialogAction
+                                                    className='bg-destructive hover:bg-destructive/90'
+                                                    onClick={() => onCancelBooking(user, booking)}>
+                                                    Confirm Cancellation
+                                                </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -205,6 +246,25 @@ export default function AdminUsersPage() {
             description: `Booking has been ${newStatus.toLowerCase()}.`,
         });
     };
+
+    const handleCancelBooking = async (user: any, booking: Booking) => {
+        if (!firestore || !user.id) return;
+        const bookingRef = doc(firestore, `users/${user.id}/bookings`, booking.id);
+        updateDocumentNonBlocking(bookingRef, { status: 'Cancelled' });
+        
+        await sendEmail(
+            user.email,
+            `Your Booking for ${booking.eventName} has been Cancelled`,
+            `Hi ${user.name},\n\nYour booking for the event: ${booking.eventName} has been cancelled by an administrator.\n\n` +
+            `If you have any questions, please contact support.\n\nThanks,\nThe TicketSwift Team`
+        );
+
+        toast({
+            title: `Booking Cancelled`,
+            description: `The booking for ${booking.eventName} has been cancelled.`,
+            variant: "destructive"
+        });
+    }
     
     const handleAdminToggle = (user) => {
         if(!firestore) return;
@@ -285,7 +345,7 @@ export default function AdminUsersPage() {
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent>
-                                <UserDetails user={user} onVerifyId={handleVerification} onVerifyPayment={handlePaymentVerification}/>
+                                <UserDetails user={user} onVerifyId={handleVerification} onVerifyPayment={handlePaymentVerification} onCancelBooking={handleCancelBooking} />
                             </AccordionContent>
                         </AccordionItem>
                     )
