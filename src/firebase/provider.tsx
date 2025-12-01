@@ -5,7 +5,8 @@ import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, collection } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
-import { useDoc, useCollection, WithId } from './firestore/use-collection';
+import { useDoc } from './firestore/use-doc';
+import { useCollection, WithId } from './firestore/use-collection';
 import { Booking } from '@/lib/types';
 
 
