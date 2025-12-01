@@ -74,10 +74,9 @@ export function PaymentSubmissionDialog({
         const result = await verifyPaymentReceipt({ 
             photoDataUri,
             expectedAmount: totalPrice,
-            expectedName: userName,
         });
 
-        if (result.isReceipt && result.amountMatches && result.nameMatches) {
+        if (result.isReceipt && result.amountMatches) {
             setVerification({ state: 'success', message: "AI verification successful. Ready for submission." });
         } else {
             setVerification({ state: 'error', message: result.reason || "This does not appear to be a valid receipt. Please try again." });
