@@ -21,6 +21,7 @@ export type Event = {
   date: string;
   time: string;
   venue: string;
+  category: string;
   description: string;
   imageUrl: string;
   imageHint: string;
