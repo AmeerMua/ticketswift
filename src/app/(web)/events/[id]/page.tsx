@@ -113,22 +113,33 @@ export default function EventDetailsPage() {
     // and get the download URL. For this demo, we'll use a placeholder.
     const screenshotUrl = 'placeholder/screenshot.jpg';
     
+    // Generate individual ticket details
+    const tickets = Object.entries(ticketQuantities)
+      .filter(([, qty]) => qty > 0)
+      .flatMap(([categoryId, quantity]) => {
+        const category = event.ticketCategories.find(c => c.id === categoryId);
+        if (!category) return [];
+
+        return Array.from({ length: quantity }, (_, i) => ({
+          id: `${categoryId}-${Date.now()}-${i}`, // pseudo-unique ticket ID
+          bookingId: '', // This will be set later if needed
+          eventId: event.id,
+          userId: user.uid,
+          categoryName: category.name,
+          price: category.price,
+        }));
+      });
+      
     const bookingData = {
         userId: user.uid,
         eventId: event.id,
-        tickets: Object.entries(ticketQuantities)
-            .filter(([, qty]) => qty > 0)
-            .map(([categoryId, quantity]) => ({
-                categoryId,
-                quantity,
-                categoryName: event.ticketCategories.find(c => c.id === categoryId)?.name,
-                price: event.ticketCategories.find(c => c.id === categoryId)?.price
-            })),
+        eventName: event.name,
+        eventDate: event.date,
+        tickets: tickets,
         totalAmount: totalPrice,
         bookingDate: new Date().toISOString(),
         status: 'PaymentPending',
         paymentScreenshotUrl: screenshotUrl,
-        // Add the fields required by the security rules
         numberOfTickets: totalTickets,
     };
 
@@ -152,7 +163,6 @@ export default function EventDetailsPage() {
         onOpenChange={setIsPaymentDialogOpen}
         onSubmit={handleBookingSubmit}
         totalPrice={totalPrice}
-        userName={user?.displayName || 'user'}
     />
     <div className="container mx-auto px-4 py-8">
       <div className="grid md:grid-cols-5 gap-8">

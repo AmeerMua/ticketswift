@@ -23,7 +23,6 @@ interface PaymentSubmissionDialogProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (screenshotFile: File) => Promise<void>;
   totalPrice: number;
-  userName: string;
 }
 
 type VerificationState = 'idle' | 'verifying' | 'success' | 'error';
@@ -37,7 +36,6 @@ export function PaymentSubmissionDialog({
   onOpenChange,
   onSubmit,
   totalPrice,
-  userName,
 }: PaymentSubmissionDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);

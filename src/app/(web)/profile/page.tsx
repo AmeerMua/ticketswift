@@ -12,6 +12,7 @@ import { sendEmailVerification } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { BookingHistory } from '@/components/profile/booking-history';
 
 const verificationStatusConfig = {
     Verified: { icon: ShieldCheck, title: 'ID Verified', description: 'Your identity has been successfully verified.', variant: 'default' as const, badgeVariant: 'default' as const},
@@ -60,7 +61,7 @@ export default function ProfilePage() {
   if (isUserLoading || !user || isUserDataLoading) {
     return (
         <div className="container mx-auto px-4 py-8">
-            <div className="max-w-xl mx-auto">
+            <div className="max-w-2xl mx-auto space-y-6">
                 <Card>
                     <CardHeader>
                         <Skeleton className="h-8 w-48" />
@@ -71,6 +72,15 @@ export default function ProfilePage() {
                         <Skeleton className="h-6 w-full" />
                         <Skeleton className="h-6 w-full" />
                         <Skeleton className="h-10 w-24 mt-4" />
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <Skeleton className="h-8 w-1/2" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Skeleton className="h-20 w-full" />
+                        <Skeleton className="h-20 w-full" />
                     </CardContent>
                 </Card>
             </div>
@@ -87,7 +97,7 @@ export default function ProfilePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-2xl mx-auto space-y-6">
         <Card>
           <CardHeader className="flex flex-row items-start justify-between">
             <div>
@@ -142,6 +152,7 @@ export default function ProfilePage() {
             </Button>
           </CardContent>
         </Card>
+        <BookingHistory />
       </div>
     </div>
   );

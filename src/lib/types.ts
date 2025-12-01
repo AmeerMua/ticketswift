@@ -31,6 +31,8 @@ export type Booking = {
   id: string;
   userId: string;
   eventId: string;
+  eventName?: string; // Denormalized for easy display
+  eventDate?: string; // Denormalized
   tickets: Ticket[];
   totalAmount: number;
   bookingDate: string;
@@ -44,5 +46,6 @@ export type Ticket = {
   eventId: string;
   userId: string;
   categoryName: TicketCategory['name'];
-  qrCodeUrl: string; // URL to the QR code image
+  price: number;
+  qrCodeUrl?: string; // This is now generated on the fly, so it can be optional
 };
