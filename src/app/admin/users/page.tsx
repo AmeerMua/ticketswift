@@ -1,6 +1,6 @@
 'use client';
 
-import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet, Upload, User as UserIcon } from 'lucide-react';
+import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet, Upload, User as UserIcon, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,24 +15,15 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuTrigger,
-    DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { useCollection, useFirestore, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
-import { Booking, Ticket } from '@/lib/types';
+import { Booking } from '@/lib/types';
 
 const statusConfig = {
     Verified: { variant: "default" as const, icon: CheckCircle, className: "text-green-600" },
@@ -47,10 +38,9 @@ const bookingStatusVariant: { [key: string]: 'default' | 'secondary' | 'destruct
   Cancelled: 'destructive',
 };
 
-function UserDetails({ user }) {
+function UserDetails({ user, onVerifyId, onVerifyPayment }) {
     const firestore = useFirestore();
-    const { toast } = useToast();
-
+    
     const bookingsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
         return collection(firestore, `users/${user.id}/bookings`);
@@ -58,26 +48,14 @@ function UserDetails({ user }) {
     
     const { data: bookings, isLoading: bookingsLoading, error: bookingsError } = useCollection<Booking>(bookingsQuery);
 
-    const handlePaymentVerification = (bookingId: string) => {
-        if (!firestore || !user) return;
-        const bookingRef = doc(firestore, `users/${user.id}/bookings`, bookingId);
-        updateDocumentNonBlocking(bookingRef, { status: 'Confirmed' });
-        toast({
-            title: 'Payment Verified',
-            description: `Booking ${bookingId} has been confirmed.`,
-        });
-    };
-
     return (
         <div className='grid md:grid-cols-2 gap-6 pt-2 pb-4 px-4'>
             <div>
                 <h4 className="font-semibold text-lg mb-2">ID Verification</h4>
                 <div className='p-4 border rounded-lg bg-muted/30'>
                     {user.verificationStatus === 'Pending' ? (
-                        <>
-                            {/* In a real app, user.idCardUrl would point to the uploaded image in Firebase Storage */}
-                            <p className='text-sm text-muted-foreground mb-2'>User submitted the following ID for verification:</p>
-                             <div className="relative aspect-video w-full overflow-hidden rounded-md border">
+                        <div className='space-y-3'>
+                             <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-background">
                                 <Image 
                                     src={'https://picsum.photos/seed/id-card-demo/600/400'} 
                                     alt="ID Card" 
@@ -85,12 +63,23 @@ function UserDetails({ user }) {
                                     className='object-cover'
                                 />
                             </div>
-                        </>
+                            <p className='text-sm text-muted-foreground'>User submitted the above ID for verification.</p>
+                             <div className='flex justify-end gap-2'>
+                                <Button size="sm" variant="destructive" onClick={() => onVerifyId(user.id, 'Rejected')}>
+                                    <X className='mr-2 h-4 w-4' />
+                                    Reject
+                                </Button>
+                                <Button size="sm" onClick={() => onVerifyId(user.id, 'Verified')}>
+                                    <Check className='mr-2 h-4 w-4' />
+                                    Approve
+                                </Button>
+                            </div>
+                        </div>
                     ) : (
-                        <div className='text-center py-8'>
+                        <div className='text-center py-8 flex flex-col items-center justify-center h-full'>
                             <p className='text-muted-foreground'>
                                 {user.verificationStatus === 'NotSubmitted' && 'User has not submitted an ID.'}
-                                {user.verificationStatus === 'Verified' && 'User ID has been verified.'}
+                                {user.verified && 'User ID has been verified.'}
                                 {user.verificationStatus === 'Rejected' && 'User ID submission was rejected.'}
                             </p>
                         </div>
@@ -109,26 +98,37 @@ function UserDetails({ user }) {
                     )}
                     <div className='space-y-3'>
                         {(bookings || []).map(booking => (
-                             <div key={booking.id} className="p-3 border bg-background rounded-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                                <div className="flex-grow">
-                                    <h3 className="font-semibold text-sm">{booking.eventName}</h3>
-                                    <p className="text-xs text-muted-foreground">
-                                        {booking.eventDate ? format(new Date(booking.eventDate), 'PPP') : 'Date N/A'}
-                                    </p>
-                                     <p className="text-xs text-muted-foreground">
-                                        {booking.numberOfTickets} Ticket{booking.numberOfTickets > 1 ? 's' : ''} &bull; ${booking.totalAmount.toFixed(2)}
-                                    </p>
-                                </div>
-                                <div className="flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto">
-                                    <Badge variant={bookingStatusVariant[booking.status] || 'outline'} className="self-end text-xs">
+                             <div key={booking.id} className="p-3 border bg-background rounded-md flex flex-col gap-2">
+                                <div className='flex justify-between items-start'>
+                                    <div>
+                                        <h3 className="font-semibold text-sm">{booking.eventName}</h3>
+                                        <p className="text-xs text-muted-foreground">
+                                            {booking.eventDate ? format(new Date(booking.eventDate), 'PPP') : 'Date N/A'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {booking.numberOfTickets} Ticket{booking.numberOfTickets > 1 ? 's' : ''} &bull; ${booking.totalAmount.toFixed(2)}
+                                        </p>
+                                    </div>
+                                    <Badge variant={bookingStatusVariant[booking.status] || 'outline'} className="self-start text-xs whitespace-nowrap">
                                         {booking.status}
                                     </Badge>
-                                    {booking.status === 'PaymentPending' && (
-                                        <Button size='sm' className='h-7 text-xs' onClick={() => handlePaymentVerification(booking.id)}>
-                                            <CheckCircle className='mr-2 h-3 w-3'/> Verify Payment
-                                        </Button>
-                                    )}
                                 </div>
+                                {booking.status === 'PaymentPending' && (
+                                     <div className='flex flex-col gap-2'>
+                                        <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-background">
+                                            {/* In a real app, this src would be the uploaded screenshot URL */}
+                                            <Image src={'https://picsum.photos/seed/receipt-demo/600/400'} alt="Payment Screenshot" fill className='object-contain' />
+                                        </div>
+                                        <div className='flex justify-end gap-2'>
+                                            <Button size='sm' className='h-7 text-xs' variant="destructive" onClick={() => onVerifyPayment(user.id, booking.id, 'Cancelled')}>
+                                                <X className='mr-2 h-3 w-3'/> Reject
+                                            </Button>
+                                            <Button size='sm' className='h-7 text-xs' onClick={() => onVerifyPayment(user.id, booking.id, 'Confirmed')}>
+                                                <CheckCircle className='mr-2 h-3 w-3'/> Approve Payment
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -162,6 +162,16 @@ export default function AdminUsersPage() {
             description: `The user's verification status has been updated.`,
         })
     }
+
+    const handlePaymentVerification = (userId: string, bookingId: string, newStatus: 'Confirmed' | 'Cancelled') => {
+        if (!firestore || !userId) return;
+        const bookingRef = doc(firestore, `users/${userId}/bookings`, bookingId);
+        updateDocumentNonBlocking(bookingRef, { status: newStatus });
+        toast({
+            title: `Booking ${newStatus}`,
+            description: `Booking has been ${newStatus.toLowerCase()}.`,
+        });
+    };
     
     const handleAdminToggle = (user) => {
         if(!firestore) return;
@@ -221,9 +231,6 @@ export default function AdminUsersPage() {
                     const config = statusConfig[status];
                     const Icon = config.icon;
 
-                    // A mock check for pending payments based on user ID for demo
-                    const hasPendingPayment = user.id === 'user-1';
-
                     return (
                         <AccordionItem value={user.id} key={user.id}>
                             <AccordionTrigger className='px-4 hover:bg-muted/50 rounded-md data-[state=open]:bg-muted/50 data-[state=open]:rounded-b-none transition-colors'>
@@ -245,7 +252,7 @@ export default function AdminUsersPage() {
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent>
-                                <UserDetails user={user} />
+                                <UserDetails user={user} onVerifyId={handleVerification} onVerifyPayment={handlePaymentVerification}/>
                             </AccordionContent>
                         </AccordionItem>
                     )
