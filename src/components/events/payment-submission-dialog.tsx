@@ -12,15 +12,24 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { UploadCloud, File, X, Loader2 } from 'lucide-react';
+import { UploadCloud, File, X, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
 import { Separator } from '../ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { verifyPaymentReceipt } from '@/ai/flows/verify-payment-receipt-flow';
 
 interface PaymentSubmissionDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (screenshotFile: File) => Promise<void>;
   totalPrice: number;
+  userName: string;
+}
+
+type VerificationState = 'idle' | 'verifying' | 'success' | 'error';
+type VerificationResult = {
+    state: VerificationState;
+    message: string | null;
 }
 
 export function PaymentSubmissionDialog({
@@ -28,10 +37,12 @@ export function PaymentSubmissionDialog({
   onOpenChange,
   onSubmit,
   totalPrice,
+  userName,
 }: PaymentSubmissionDialogProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verification, setVerification] = useState<VerificationResult>({ state: 'idle', message: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -49,15 +60,40 @@ export function PaymentSubmissionDialog({
       setFile(selectedFile);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreview(reader.result as string);
+        const dataUrl = reader.result as string;
+        setPreview(dataUrl);
+        runAiVerification(dataUrl);
       };
       reader.readAsDataURL(selectedFile);
     }
   };
+  
+  const runAiVerification = async (photoDataUri: string) => {
+    setVerification({ state: 'verifying', message: 'Analyzing receipt...' });
+    try {
+        const result = await verifyPaymentReceipt({ 
+            photoDataUri,
+            expectedAmount: totalPrice,
+            expectedName: userName,
+        });
+
+        if (result.isReceipt && result.amountMatches && result.nameMatches) {
+            setVerification({ state: 'success', message: "AI verification successful. Ready for submission." });
+        } else {
+            setVerification({ state: 'error', message: result.reason || "This does not appear to be a valid receipt. Please try again." });
+        }
+    } catch (e) {
+        console.error(e);
+        // Allow submission even if AI fails, for manual review
+        setVerification({ state: 'success', message: 'Could not run AI-check. Your submission will be reviewed manually.' });
+    }
+  }
+
 
   const handleRemoveFile = () => {
     setFile(null);
     setPreview(null);
+    setVerification({ state: 'idle', message: null });
     if(fileInputRef.current) {
         fileInputRef.current.value = '';
     }
@@ -84,10 +120,13 @@ export function PaymentSubmissionDialog({
     if (!open) {
         setFile(null);
         setPreview(null);
+        setVerification({ state: 'idle', message: null });
         setIsSubmitting(false);
     }
     onOpenChange(open);
   }
+  
+  const isSubmitDisabled = !file || isSubmitting || verification.state === 'verifying' || verification.state === 'error';
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -151,11 +190,24 @@ export function PaymentSubmissionDialog({
                 </Button>
               </div>
             )}
+             {verification.state !== 'idle' && (
+                 <Alert variant={verification.state === 'error' ? 'destructive' : 'default'}>
+                    {verification.state === 'verifying' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {verification.state === 'error' && <AlertCircle className="h-4 w-4" />}
+                    {verification.state === 'success' && <CheckCircle className="h-4 w-4" />}
+                    <AlertTitle>
+                        {verification.state === 'verifying' && 'Verifying Receipt...'}
+                        {verification.state === 'error' && 'Verification Failed'}
+                        {verification.state === 'success' && 'Verification Complete'}
+                    </AlertTitle>
+                    <AlertDescription>{verification.message}</AlertDescription>
+                </Alert>
+            )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!file || isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitDisabled}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Submit
           </Button>

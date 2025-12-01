@@ -150,6 +150,7 @@ export default function EventDetailsPage() {
         onOpenChange={setIsPaymentDialogOpen}
         onSubmit={handleBookingSubmit}
         totalPrice={totalPrice}
+        userName={user?.displayName || 'user'}
     />
     <div className="container mx-auto px-4 py-8">
       <div className="grid md:grid-cols-5 gap-8">
