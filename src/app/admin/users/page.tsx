@@ -38,6 +38,20 @@ const bookingStatusVariant: { [key: string]: 'default' | 'secondary' | 'destruct
   Cancelled: 'destructive',
 };
 
+// Placeholder function for sending emails
+const sendEmail = async (to: string, subject: string, body: string) => {
+  console.log(`---
+SENDING EMAIL (placeholder)
+To: ${to}
+Subject: ${subject}
+Body: ${body}
+---`);
+  // In a real app, you would replace this with a call to a backend service
+  // that sends the email, e.g., using a Cloud Function and an email API like SendGrid.
+  return Promise.resolve();
+};
+
+
 function UserDetails({ user, onVerifyId, onVerifyPayment }) {
     const firestore = useFirestore();
     
@@ -65,11 +79,11 @@ function UserDetails({ user, onVerifyId, onVerifyPayment }) {
                             </div>
                             <p className='text-sm text-muted-foreground'>User submitted the above ID for verification.</p>
                              <div className='flex justify-end gap-2'>
-                                <Button size="sm" variant="destructive" onClick={() => onVerifyId(user.id, 'Rejected')}>
+                                <Button size="sm" variant="destructive" onClick={() => onVerifyId(user, 'Rejected')}>
                                     <X className='mr-2 h-4 w-4' />
                                     Reject
                                 </Button>
-                                <Button size="sm" onClick={() => onVerifyId(user.id, 'Verified')}>
+                                <Button size="sm" onClick={() => onVerifyId(user, 'Verified')}>
                                     <Check className='mr-2 h-4 w-4' />
                                     Approve
                                 </Button>
@@ -120,10 +134,10 @@ function UserDetails({ user, onVerifyId, onVerifyPayment }) {
                                             <Image src={'https://picsum.photos/seed/receipt-demo/600/400'} alt="Payment Screenshot" fill className='object-contain' />
                                         </div>
                                         <div className='flex justify-end gap-2'>
-                                            <Button size='sm' className='h-7 text-xs' variant="destructive" onClick={() => onVerifyPayment(user.id, booking.id, 'Cancelled')}>
+                                            <Button size='sm' className='h-7 text-xs' variant="destructive" onClick={() => onVerifyPayment(user, booking, 'Cancelled')}>
                                                 <X className='mr-2 h-3 w-3'/> Reject
                                             </Button>
-                                            <Button size='sm' className='h-7 text-xs' onClick={() => onVerifyPayment(user.id, booking.id, 'Confirmed')}>
+                                            <Button size='sm' className='h-7 text-xs' onClick={() => onVerifyPayment(user, booking, 'Confirmed')}>
                                                 <CheckCircle className='mr-2 h-3 w-3'/> Approve Payment
                                             </Button>
                                         </div>
@@ -150,23 +164,42 @@ export default function AdminUsersPage() {
 
     const { data: users, isLoading, error } = useCollection(usersQuery);
 
-    const handleVerification = (userId: string, newStatus: 'Verified' | 'Rejected') => {
+    const handleVerification = async (user: any, newStatus: 'Verified' | 'Rejected') => {
         if (!firestore) return;
-        const userRef = doc(firestore, 'users', userId);
+        const userRef = doc(firestore, 'users', user.id);
         updateDocumentNonBlocking(userRef, { 
             verificationStatus: newStatus,
             verified: newStatus === 'Verified' 
         });
+
+        await sendEmail(
+            user.email,
+            `Your ID Verification has been ${newStatus}`,
+            `Hi ${user.name},\n\nYour ID verification status has been updated to: ${newStatus}.\n\n` +
+            (newStatus === 'Verified' ? 'You can now book tickets for events.' : 'Please resubmit your ID for verification.') +
+            `\n\nThanks,\nThe TicketSwift Team`
+        );
+        
         toast({
             title: `User ${newStatus}`,
             description: `The user's verification status has been updated.`,
         })
     }
 
-    const handlePaymentVerification = (userId: string, bookingId: string, newStatus: 'Confirmed' | 'Cancelled') => {
-        if (!firestore || !userId) return;
-        const bookingRef = doc(firestore, `users/${userId}/bookings`, bookingId);
+    const handlePaymentVerification = async (user: any, booking: Booking, newStatus: 'Confirmed' | 'Cancelled') => {
+        if (!firestore || !user.id) return;
+        const bookingRef = doc(firestore, `users/${user.id}/bookings`, booking.id);
         updateDocumentNonBlocking(bookingRef, { status: newStatus });
+        
+        if (newStatus === 'Confirmed') {
+            await sendEmail(
+                user.email,
+                `Your Booking for ${booking.eventName} is Confirmed!`,
+                `Hi ${user.name},\n\nGreat news! Your payment has been confirmed for the event: ${booking.eventName}.\n\n` +
+                `You can now download your tickets from your profile page.\n\nEnjoy the event!\n\nThe TicketSwift Team`
+            );
+        }
+
         toast({
             title: `Booking ${newStatus}`,
             description: `Booking has been ${newStatus.toLowerCase()}.`,
