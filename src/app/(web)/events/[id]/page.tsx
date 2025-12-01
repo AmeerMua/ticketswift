@@ -128,6 +128,8 @@ export default function EventDetailsPage() {
         bookingDate: new Date().toISOString(),
         status: 'PaymentPending',
         paymentScreenshotUrl: screenshotUrl,
+        // Add the fields required by the security rules
+        numberOfTickets: totalTickets,
     };
 
     const bookingsRef = collection(firestore, `users/${user.uid}/bookings`);
