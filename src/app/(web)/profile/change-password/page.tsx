@@ -25,7 +25,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
-import { EmailAuthProvider, reauthenticateWithCredential, updatePassword, FirebaseError } from 'firebase/auth';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
 
