@@ -1,6 +1,6 @@
 
 import Image from 'next/image';
-import { MapPin, Calendar } from 'lucide-react';
+import { MapPin, Calendar, AlertTriangle } from 'lucide-react';
 import type { Event } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, isPast, differenceInDays } from 'date-fns';
 
 interface EventCardProps {
   event: Event;
@@ -20,8 +20,19 @@ interface EventCardProps {
 
 export function EventCard({ event, onSelectEvent }: EventCardProps) {
   const isSoldOut = event.ticketCategories.every(
-    (cat) => cat.sold >= cat.limit
+    (cat) => (cat.sold || 0) >= cat.limit
   );
+
+  const isDeadlinePassed = isPast(new Date(event.bookingDeadline));
+  const daysLeft = differenceInDays(new Date(event.bookingDeadline), new Date());
+  const deadlineText = isDeadlinePassed
+    ? 'Booking closed'
+    : daysLeft < 0 
+    ? 'Booking closed'
+    : daysLeft === 0
+    ? 'Ends today'
+    : `${daysLeft} day${daysLeft > 1 ? 's' : ''} left`;
+
 
   return (
     <Card className="flex flex-col overflow-hidden transition-transform duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg">
@@ -54,11 +65,15 @@ export function EventCard({ event, onSelectEvent }: EventCardProps) {
             <MapPin className="h-4 w-4" />
             <span>{event.venue}</span>
           </div>
+           <div className={`flex items-center gap-2 pt-1 ${isDeadlinePassed ? 'text-destructive' : 'text-amber-600 dark:text-amber-500'}`}>
+            <AlertTriangle className="h-4 w-4" />
+            <span className="font-medium">{deadlineText}</span>
+          </div>
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Button onClick={() => onSelectEvent(event)} className="w-full" size="sm" variant={isSoldOut ? "secondary" : "default"} disabled={isSoldOut}>
-          {isSoldOut ? 'Sold Out' : 'Get Tickets'}
+        <Button onClick={() => onSelectEvent(event)} className="w-full" size="sm" variant={isSoldOut ? "secondary" : "default"} disabled={isSoldOut || isDeadlinePassed}>
+          {isSoldOut || isDeadlinePassed ? 'Booking Closed' : 'Get Tickets'}
         </Button>
       </CardFooter>
     </Card>
