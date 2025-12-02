@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -66,6 +67,10 @@ export default function LoginPage() {
           case 'auth/invalid-email':
             title = 'Invalid Email';
             description = 'Please enter a valid email address.';
+            break;
+          case 'auth/too-many-requests':
+            title = 'Account Temporarily Locked';
+            description = 'Access to this account has been temporarily disabled due to too many failed login attempts. Please try again later.';
             break;
           default:
             description = error.message;
