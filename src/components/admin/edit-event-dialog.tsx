@@ -49,7 +49,7 @@ const eventFormSchema = z.object({
   venue: z.string().min(3, 'Venue is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters long.'),
   ticketCategories: z.array(ticketCategorySchema).min(1, 'At least one ticket category is required.'),
-  bookingDeadline: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'A valid booking deadline is required.' }),
+  bookingDeadline: z.string().refine((val) => val && !isNaN(Date.parse(val)), { message: 'A valid booking deadline is required.' }),
   category: z.string().min(1, 'Category is required.'),
 });
 
@@ -92,9 +92,6 @@ export function EditEventDialog({ event, isOpen, onOpenChange }: EditEventDialog
     if (!firestore || !event) return;
     const eventRef = doc(firestore, 'events', event.id);
     
-    // The form data ('data') is already in the correct shape.
-    // The 'sold' count for existing categories is preserved from the form's state.
-    // New categories added via the form will have their 'sold' field from the 'append' default.
     updateDocumentNonBlocking(eventRef, data);
 
     toast({
