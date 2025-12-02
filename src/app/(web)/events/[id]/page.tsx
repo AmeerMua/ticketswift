@@ -47,7 +47,7 @@ export default function EventDetailsPage() {
             event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
         );
     }
-  }, [event]);
+  }, [event, eventRef]);
 
   if (isLoadingEvent) {
     return (
