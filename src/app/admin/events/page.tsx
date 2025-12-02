@@ -1,3 +1,6 @@
+
+'use client';
+
 import Link from 'next/link';
 import { PlusCircle, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,10 +27,20 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { mockEvents } from '@/lib/data';
 import { format } from 'date-fns';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { Event } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminEventsPage() {
+    const firestore = useFirestore();
+    const eventsQuery = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'events') : null),
+        [firestore]
+    );
+    const { data: events, isLoading } = useCollection<Event>(eventsQuery);
+
     const getTotalTickets = (event) => event.ticketCategories.reduce((acc, cat) => acc + cat.limit, 0);
     const getTotalSold = (event) => event.ticketCategories.reduce((acc, cat) => acc + cat.sold, 0);
 
@@ -63,7 +76,16 @@ export default function AdminEventsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockEvents.map((event) => (
+              {isLoading && [...Array(3)].map((_, i) => (
+                <TableRow key={i}>
+                    <TableCell><Skeleton className="h-5 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell className='text-center'><Skeleton className="h-5 w-20 mx-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                </TableRow>
+              ))}
+              {!isLoading && events?.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell className="font-medium">
                     <div className="font-medium">{event.name}</div>
@@ -93,6 +115,13 @@ export default function AdminEventsPage() {
                   </TableCell>
                 </TableRow>
               ))}
+               {!isLoading && events?.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                        No events found.
+                    </TableCell>
+                </TableRow>
+               )}
             </TableBody>
           </Table>
         </CardContent>
