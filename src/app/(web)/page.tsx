@@ -1,23 +1,34 @@
+
 'use client';
 
 import { useState } from 'react';
 import { EventCard } from '@/components/events/event-card';
 import { EventFilters } from '@/components/events/event-filters';
 import { Button } from '@/components/ui/button';
-import { mockEvents } from '@/lib/data';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { SearchX } from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { Event } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState('all');
+  const firestore = useFirestore();
+
+  const eventsQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'events') : null),
+    [firestore]
+  );
+  const { data: events, isLoading } = useCollection<Event>(eventsQuery);
 
   const handleClearFilters = () => {
     setSearchTerm('');
     setCategory('all');
   };
 
-  const filteredEvents = mockEvents.filter((event) => {
+  const filteredEvents = (events || []).filter((event) => {
     const searchTermMatch = event.name
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -85,13 +96,35 @@ export default function HomePage() {
             />
           </div>
 
-          {filteredEvents.length > 0 ? (
+          {isLoading && (
+             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[...Array(4)].map((_, i) => (
+                    <Card key={i}>
+                        <CardHeader className='p-0'>
+                            <Skeleton className='aspect-[3/2] w-full' />
+                        </CardHeader>
+                        <CardContent className='p-4 space-y-2'>
+                            <Skeleton className='h-6 w-3/4' />
+                            <Skeleton className='h-4 w-1/2' />
+                            <Skeleton className='h-4 w-1/2' />
+                        </CardContent>
+                        <CardFooter className='p-4'>
+                            <Skeleton className='h-9 w-full' />
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+          )}
+
+          {!isLoading && filteredEvents.length > 0 && (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredEvents.map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
-          ) : (
+          )}
+          
+          {!isLoading && filteredEvents.length === 0 && (
             <div className="flex justify-center">
               <Alert className="max-w-lg text-center flex flex-col items-center">
                 <SearchX className="h-6 w-6 mb-2" />
@@ -107,3 +140,5 @@ export default function HomePage() {
     </>
   );
 }
+
+    

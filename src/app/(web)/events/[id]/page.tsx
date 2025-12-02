@@ -1,10 +1,9 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, notFound } from 'next/navigation';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
-import { mockEvents } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,18 +11,19 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardFooter,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, Clock, MapPin, Ticket, Minus, Plus } from 'lucide-react';
+import { Calendar, Clock, MapPin, Ticket, Minus, Plus, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentSubmissionDialog } from '@/components/events/payment-submission-dialog';
-import { collection } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { logAuditEvent } from '@/lib/audit';
+import { Event } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function EventDetailsPage() {
   const params = useParams();
@@ -32,13 +32,52 @@ export default function EventDetailsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  const eventsQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'events') : null),
+    [firestore]
+  );
+  const { data: events, isLoading: isLoadingEvents } = useCollection<Event>(eventsQuery);
+
+  const event = useMemo(() => {
+    if (!events) return null;
+    const eventDoc = events.find((e) => e.id === id);
+    if (!eventDoc) return null;
+
+    // The subcollection data won't be on this object, so we create a default
+    // if it's missing, which it will be from Firestore.
+    return {
+      ...eventDoc,
+      ticketCategories: eventDoc.ticketCategories || [],
+    };
+  }, [events, id]);
+  
+  const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
-  const event = useMemo(() => mockEvents.find((e) => e.id === id), [id]);
+  // Effect to initialize quantities once event data is loaded
+  useState(() => {
+    if (event) {
+        setTicketQuantities(event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {}));
+    }
+  });
 
-  const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>(
-    event?.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {}) || {}
-  );
+  if (isLoadingEvents) {
+    return (
+        <div className="container mx-auto px-4 py-8">
+            <div className="grid md:grid-cols-5 gap-8">
+                <div className="md:col-span-3 space-y-4">
+                    <Skeleton className="aspect-[16/9] w-full rounded-xl" />
+                    <Skeleton className="h-10 w-3/4" />
+                    <Skeleton className="h-6 w-1/2" />
+                    <Skeleton className="h-24 w-full" />
+                </div>
+                <div className="md:col-span-2">
+                    <Skeleton className="h-96 w-full" />
+                </div>
+            </div>
+      </div>
+    );
+  }
 
   if (!event) {
     return notFound();
@@ -85,12 +124,24 @@ export default function EventDetailsPage() {
   const isBookingDisabled = () => {
     if (!user) return true;
     if (!userData) return true;
-    return userData.verified !== true;
+    if (userData.verified !== true) return true;
+    const now = new Date();
+    const deadline = event.bookingDeadline ? new Date(event.bookingDeadline) : null;
+    if (deadline && now > deadline) {
+        return true;
+    }
+    return false;
   };
 
   const bookingDisabled = isBookingDisabled();
 
   const getDisabledMessage = () => {
+    const now = new Date();
+    const deadline = event.bookingDeadline ? new Date(event.bookingDeadline) : null;
+
+    if (deadline && now > deadline) {
+        return <p>Booking for this event has closed.</p>;
+    }
     if (!user) {
         return <p>Please <Link href="/login" className="font-bold underline">log in</Link> to book tickets.</p>;
     }
@@ -145,21 +196,29 @@ export default function EventDetailsPage() {
     };
 
     const bookingsRef = collection(firestore, `users/${user.uid}/bookings`);
-    const bookingDoc = await addDocumentNonBlocking(bookingsRef, bookingData);
+    const bookingDocRef = doc(bookingsRef); // Create a reference with a new ID
+    const bookingId = bookingDocRef.id;
+
+    // Now use this ID in your data
+    const finalBookingData = {
+      ...bookingData,
+      id: bookingId,
+      tickets: tickets.map(t => ({...t, bookingId: bookingId}))
+    };
+    
+    await addDocumentNonBlocking(bookingsRef, finalBookingData, bookingDocRef);
 
     // Log the audit event
-    if (bookingDoc) {
-      logAuditEvent(firestore, {
-        userId: user.uid,
-        action: 'create-booking',
-        details: {
-          bookingId: bookingDoc.id,
-          eventId: event.id,
-          numberOfTickets: totalTickets,
-          totalPrice: totalPrice,
-        },
-      });
-    }
+    logAuditEvent(firestore, {
+      userId: user.uid,
+      action: 'create-booking',
+      details: {
+        bookingId: bookingId,
+        eventId: event.id,
+        numberOfTickets: totalTickets,
+        totalPrice: totalPrice,
+      },
+    });
 
     setIsPaymentDialogOpen(false);
     toast({
@@ -224,7 +283,7 @@ export default function EventDetailsPage() {
                   <div>
                     <h3 className="font-semibold">{category.name}</h3>
                     <p className="text-sm text-primary font-bold">
-                      ${category.price.toFixed(2)}
+                      Rs.{category.price.toFixed(2)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {category.limit - category.sold} remaining
@@ -263,7 +322,7 @@ export default function EventDetailsPage() {
                 {totalTickets > 0 && (
                     <div className="flex justify-between items-center text-lg font-bold">
                         <span>Total:</span>
-                        <span>${totalPrice.toFixed(2)}</span>
+                        <span>Rs.{totalPrice.toFixed(2)}</span>
                     </div>
                 )}
                  {bookingDisabled && (
@@ -282,3 +341,5 @@ export default function EventDetailsPage() {
     </>
   );
 }
+
+    
