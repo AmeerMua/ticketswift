@@ -1,3 +1,4 @@
+
 export type User = {
   id: string;
   name: string;
@@ -28,6 +29,7 @@ export type Event = {
   imageHint: string;
   ticketCategories: TicketCategory[];
   bookingDeadline?: string;
+  totalRevenue?: number;
 };
 
 export type Booking = {

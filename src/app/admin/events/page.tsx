@@ -88,7 +88,9 @@ export default function AdminEventsPage() {
               {!isLoading && events?.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell className="font-medium">
-                    <div className="font-medium">{event.name}</div>
+                    <Link href={`/admin/events/${event.id}`} className="hover:underline">
+                      <div className="font-medium">{event.name}</div>
+                    </Link>
                     <div className="text-sm text-muted-foreground">{event.venue}</div>
                   </TableCell>
                   <TableCell>{format(new Date(event.date), "PPP")}</TableCell>
@@ -108,7 +110,7 @@ export default function AdminEventsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem asChild><Link href={`/admin/events/${event.id}`}>View Details</Link></DropdownMenuItem>
                         <DropdownMenuItem>Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
