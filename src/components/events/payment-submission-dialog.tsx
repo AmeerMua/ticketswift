@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, ChangeEvent, useRef } from 'react';
@@ -31,6 +32,9 @@ type VerificationResult = {
     message: string | null;
 }
 
+const MAX_FILE_SIZE_MB = 1;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 export function PaymentSubmissionDialog({
   isOpen,
   onOpenChange,
@@ -47,14 +51,27 @@ export function PaymentSubmissionDialog({
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      if (!selectedFile.type.startsWith('image/')) {
+       // File Type Validation
+      const allowedTypes = ['image/jpeg', 'image/png'];
+      if (!allowedTypes.includes(selectedFile.type)) {
         toast({
           variant: 'destructive',
           title: 'Invalid File Type',
-          description: 'Please upload an image file (e.g., PNG, JPG).',
+          description: 'Please upload a JPG or PNG image file.',
         });
         return;
       }
+      
+      // File Size Validation
+      if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+        toast({
+          variant: 'destructive',
+          title: 'File Too Large',
+          description: `Please upload an image smaller than ${MAX_FILE_SIZE_MB}MB.`,
+        });
+        return;
+      }
+
       setFile(selectedFile);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -170,7 +187,7 @@ export function PaymentSubmissionDialog({
                             <p className="mb-2 text-sm text-muted-foreground">
                             <span className="font-semibold">Upload Payment Screenshot</span>
                             </p>
-                            <p className="text-xs text-muted-foreground">PNG or JPG</p>
+                            <p className="text-xs text-muted-foreground">PNG or JPG (MAX. {MAX_FILE_SIZE_MB}MB)</p>
                         </div>
                     )}
                     <Input id="screenshot-upload" type="file" className="hidden" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg" disabled={!!preview} />
