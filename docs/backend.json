@@ -209,26 +209,6 @@
         }
       },
       {
-        "path": "/events/{eventId}/ticketCategories/{ticketCategoryId}",
-        "definition": {
-          "entityName": "TicketCategory",
-          "schema": {
-            "$ref": "#/backend/entities/TicketCategory"
-          },
-          "description": "Stores ticket categories for an event. Includes 'eventId' to identify the parent event.",
-          "params": [
-            {
-              "name": "eventId",
-              "description": "Unique identifier for the event."
-            },
-            {
-              "name": "ticketCategoryId",
-              "description": "Unique identifier for the ticket category."
-            }
-          ]
-        }
-      },
-      {
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
@@ -300,3 +280,4 @@
     "reasoning": "This Firestore structure is designed to support TicketSwift's event ticket booking system, prioritizing security, scalability, and debuggability. It follows the core design principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters).\n\n**Authorization Independence**: Achieved through denormalization of data, specifically within the `bookings` subcollection under each `ticketCategory`. Each `booking` document contains the `userId` which eliminates the need to `get()` the `user` document for authorization. This allows atomic operations and simplifies security rules.\n\n**Structural Segregation**: The structure segregates data with different access needs into distinct collections.  User data is stored under `/users/{userId}`, event data under `/events/{eventId}`, and ticket categories under `/events/{eventId}/ticketCategories/{ticketCategoryId}`. This segregation allows for simpler and more targeted security rules.\n\n**Access Modeling**: The structure leverages path-based ownership for user-owned data (e.g., `/users/{userId}/bookings/{bookingId}`) and the subcollection pattern for entities with `1:N` relationships (e.g., Event has many TicketCategories).  Since there is no concept of 'collaborative data' in this application, membership maps are not used.  Admin roles are handled by checking for the existence of documents in the `/roles_admin/{uid}` collection.\n\n**QAPs (Rules are not Filters)**: The structure enables secure `list` operations by avoiding the need to filter based on user roles or permissions within the query itself.  For example, listing events does not require filtering based on user role; instead the application filters events appropriate to the user's role based on the path requested by the client. Authorization Independence ensures that rules can validate access without needing to read other documents. Segregation further prevents filtering based on complex expressions.\n\n**Additional Considerations**:\n*   The `verified` field in the `/users/{userId}` document allows the admin to verify a user. All events and tickets are visible, but booking is only allowed for verified users.\n*   The structure facilitates querying for events, ticket categories, and bookings based on relevant criteria (e.g., events by date, ticket categories by event ID, bookings by user ID).\n*   The structure can scale horizontally by adding more Firestore instances as needed.\n*   Auditing can be implemented by logging all actions (login attempts, ticket operations, admin actions) to a separate audit log collection."
   }
 }
+    
