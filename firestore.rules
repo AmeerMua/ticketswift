@@ -108,7 +108,7 @@ service cloud.firestore {
     /**
      * @description Publicly readable event information. Only admins can create, modify, or delete events.
      * @path /events/{eventId}
-     * @allow (get) Any user, signed in or not, can read an event.
+     * @allow (get, list) Any user, signed in or not, can read event data.
      * @deny (create) A non-admin user attempts to create a new event.
      * @principle Segregates public data and restricts write access to privileged roles.
      */
@@ -117,9 +117,9 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
 
       /**
-       * @description Ticket categories for an event. Inherits the same access pattern as the parent event.
+       * @description Ticket categories for an event. Stored within the event document, so this rule is redundant but kept for clarity.
        * @path /events/{eventId}/ticketCategories/{ticketCategoryId}
-       * @allow (get) Any user can read the ticket categories for an event.
+       * @allow (get, list) Any user can read the ticket categories for an event.
        * @deny (create) A regular signed-in user attempts to add a new ticket category.
        * @principle Enforces consistent security on nested data that shares the same access requirements as its parent.
        */
