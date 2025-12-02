@@ -31,7 +31,7 @@ import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged, sendEmailVerification, updateProfile } from 'firebase/auth';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, XCircle, CheckCircle2 } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -44,6 +44,33 @@ const formSchema = z.object({
     .regex(/[0-9]/, { message: 'Password must contain at least one number.' })
     .regex(/[^A-Za-z0-9]/, { message: 'Password must contain at least one special character.' }),
 });
+
+const passwordRules = [
+    { text: 'At least 8 characters long', regex: /.{8,}/ },
+    { text: 'At least one lowercase letter', regex: /[a-z]/ },
+    { text: 'At least one uppercase letter', regex: /[A-Z]/ },
+    { text: 'At least one number', regex: /[0-9]/ },
+    { text: 'At least one special character', regex: /[^A-Za-z0-9]/ },
+];
+
+const PasswordValidationRules = ({ password }: { password?: string }) => {
+    const value = password || '';
+    
+    return (
+        <div className="space-y-1 mt-2">
+            {passwordRules.map((rule, index) => {
+                const isValid = rule.regex.test(value);
+                return (
+                    <div key={index} className={`flex items-center text-sm ${isValid ? 'text-green-600' : 'text-red-500'}`}>
+                        {isValid ? <CheckCircle2 className="h-4 w-4 mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                        <span>{rule.text}</span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 
 export default function RegisterPage() {
   const auth = useAuth();
@@ -58,7 +85,10 @@ export default function RegisterPage() {
       email: '',
       password: '',
     },
+    mode: 'onTouched'
   });
+  
+  const passwordValue = form.watch('password');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -161,6 +191,7 @@ export default function RegisterPage() {
                     </button>
                   </div>
                   <FormMessage />
+                  { (form.formState.touchedFields.password || passwordValue) && <PasswordValidationRules password={passwordValue} /> }
                 </FormItem>
               )}
             />
