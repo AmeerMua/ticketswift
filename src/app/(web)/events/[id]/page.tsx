@@ -42,7 +42,7 @@ export default function EventDetailsPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (event) {
+    if (event && event.ticketCategories) {
         setTicketQuantities(
             event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
         );
@@ -67,10 +67,19 @@ export default function EventDetailsPage() {
     );
   }
 
-  if (!event) {
+  if (!isLoadingEvent && !event) {
     return notFound();
   }
   
+  if (!event || !event.ticketCategories) {
+      // This can happen briefly while data is propagating
+      return (
+        <div className="container mx-auto flex h-96 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+  }
+
   const handleQuantityChange = (categoryId: string, delta: number) => {
     setTicketQuantities((prev) => {
       const currentTotal = Object.values(prev).reduce((sum, qty) => sum + qty, 0);
@@ -180,22 +189,17 @@ export default function EventDetailsPage() {
     };
 
     const bookingsRef = collection(firestore, `users/${user.uid}/bookings`);
-    const bookingDocRef = doc(bookingsRef);
-    const bookingId = bookingDocRef.id;
-
-    const finalBookingData = {
-      ...bookingData,
-      id: bookingId,
-      tickets: tickets.map(t => ({...t, bookingId: bookingId}))
-    };
+    const bookingDocRef = doc(bookingsRef); // Let firestore generate ID
     
-    await addDocumentNonBlocking(bookingsRef, finalBookingData, bookingDocRef);
+    // Pass the ref with the generated ID to the add function
+    await addDocumentNonBlocking(bookingsRef, { ...bookingData, id: bookingDocRef.id }, bookingDocRef);
+
 
     logAuditEvent(firestore, {
       userId: user.uid,
       action: 'create-booking',
       details: {
-        bookingId: bookingId,
+        bookingId: bookingDocRef.id,
         eventId: event.id,
         numberOfTickets: totalTickets,
         totalPrice: totalPrice,
@@ -267,7 +271,7 @@ export default function EventDetailsPage() {
                       Rs.{category.price.toFixed(2)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {category.limit - category.sold} remaining
+                      {category.limit - (category.sold || 0)} remaining
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
