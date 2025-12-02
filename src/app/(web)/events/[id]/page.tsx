@@ -67,19 +67,10 @@ export default function EventDetailsPage() {
     );
   }
 
-  if (!isLoadingEvent && !event) {
+  if (!event) {
     return notFound();
   }
   
-  if (!event || !event.ticketCategories) {
-      // This can happen briefly while data is propagating or if data is malformed
-      return (
-        <div className="container mx-auto flex h-96 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      );
-  }
-
   const handleQuantityChange = (categoryId: string, delta: number) => {
     setTicketQuantities((prev) => {
       const currentTotal = Object.values(prev).reduce((sum, qty) => sum + qty, 0);
