@@ -112,7 +112,7 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
             case 'Rejected':
                 return <p>Your ID verification was rejected. Please <Link href="/verify-id" className="font-bold underline">resubmit your ID</Link>.</p>;
             default:
-                return <p>Please complete your <Link href="/verify-id" className="font-bold underline text-red-900 dark:text-red-300">ID verification</Link> to book tickets.</p>;
+                return <p>Please complete your <Link href="/verify-id" className="font-bold underline">ID verification</Link> to book tickets.</p>;
         }
     }
     return null;
@@ -190,51 +190,54 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0">
           <ScrollArea className="h-full">
-            <div className="relative aspect-[16/9] w-full overflow-hidden">
-              <Image
-                src={event.imageUrl}
-                alt={event.name}
-                data-ai-hint={event.imageHint}
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className='p-6 md:p-8'>
-                <DialogHeader>
-                    <DialogTitle className="text-4xl font-bold font-headline mb-4">{event.name}</DialogTitle>
-                    <DialogDescription>
-                        <div className="flex flex-wrap gap-x-6 gap-y-2 text-muted-foreground mb-6">
-                            <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4" />
-                            <span>{format(new Date(event.date), 'PPP')}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            <span>{event.time}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4" />
-                            <span>{event.venue}</span>
+            <div className="p-6 md:p-8">
+                <div className='grid md:grid-cols-5 gap-8'>
+
+                    <div className="md:col-span-3 space-y-6">
+                        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl">
+                            <Image
+                                src={event.imageUrl}
+                                alt={event.name}
+                                data-ai-hint={event.imageHint}
+                                fill
+                                className="object-cover"
+                            />
+                        </div>
+                        <div className='space-y-2'>
+                            <h1 className="text-4xl font-bold font-headline">{event.name}</h1>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4" />
+                                <span>{format(new Date(event.date), 'PPP')}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                <span>{event.time}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4" />
+                                <span>{event.venue}</span>
+                                </div>
                             </div>
                         </div>
-                    </DialogDescription>
-                </DialogHeader>
 
-                <div className='grid md:grid-cols-5 gap-8 mt-6'>
-                    <div className="md:col-span-3">
-                        <Separator className="mb-6" />
-                        <h2 className="text-2xl font-bold font-headline mb-4">About this event</h2>
-                        <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+                        <Separator />
+                        
+                        <div>
+                            <h2 className="text-xl font-bold font-headline mb-2">About this event</h2>
+                            <p className="text-muted-foreground leading-relaxed">{event.description}</p>
+                        </div>
                     </div>
+
                     <div className="md:col-span-2">
-                        <div className="sticky top-0 space-y-4">
+                        <div className="sticky top-6 space-y-4">
                             <h3 className="font-headline text-2xl flex items-center gap-2">
                                 <Ticket className="h-6 w-6 text-primary" />
                                 Get Your Tickets
                             </h3>
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {event.ticketCategories.map((category) => (
-                                    <div key={category.id} className="p-4 border rounded-md flex justify-between items-center bg-muted/20">
+                                    <div key={category.id} className="p-4 border rounded-lg flex justify-between items-center bg-muted/20">
                                     <div>
                                         <h3 className="font-semibold">{category.name}</h3>
                                         <p className="text-sm text-primary font-bold">
@@ -256,7 +259,7 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
                                         </Button>
                                         <Input
                                         type="number"
-                                        className="h-8 w-14 text-center"
+                                        className="h-8 w-12 text-center"
                                         value={ticketQuantities[category.id] || 0}
                                         readOnly
                                         />
@@ -265,7 +268,7 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
                                         size="icon"
                                         className="h-8 w-8"
                                         onClick={() => handleQuantityChange(category.id, 1)}
-                                        disabled={totalTickets >= 3}
+                                        disabled={totalTickets >= 3 || (category.limit - (category.sold || 0)) <= (ticketQuantities[category.id] || 0) }
                                         >
                                         <Plus className="h-4 w-4" />
                                         </Button>
@@ -281,9 +284,10 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
                                     </div>
                                 )}
                                 {bookingDisabled && (
-                                    <div className="text-center p-3 rounded-md border border-destructive/50 bg-destructive/10 text-red-900 dark:text-red-300 text-sm">
+                                    <div className="text-center p-3 rounded-md border border-destructive/50 bg-destructive/10 text-destructive-foreground text-sm">
                                         {getDisabledMessage()}
                                     </div>
+
                                 )}
                                 <Button size="lg" disabled={totalTickets === 0 || bookingDisabled} onClick={() => setIsPaymentDialogOpen(true)}>
                                     {totalTickets > 0 ? `Book ${totalTickets} Ticket${totalTickets > 1 ? 's' : ''}` : 'Select Tickets'}
