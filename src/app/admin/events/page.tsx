@@ -2,12 +2,11 @@
 'use client';
 
 import Link from 'next/link';
-import { PlusCircle, MoreHorizontal, Edit, Save, X } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -28,12 +27,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Event } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useState } from 'react';
-import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminEventsPage() {
@@ -45,46 +53,20 @@ export default function AdminEventsPage() {
     );
     const { data: events, isLoading } = useCollection<Event>(eventsQuery);
 
-    const [editingEventId, setEditingEventId] = useState<string | null>(null);
-    const [editFormData, setEditFormData] = useState<Partial<Event>>({});
-
-    const getTotalTickets = (event) => event.ticketCategories.reduce((acc, cat) => acc + cat.limit, 0);
-    const getTotalSold = (event) => event.ticketCategories.reduce((acc, cat) => acc + cat.sold, 0);
+    const getTotalTickets = (event: Event) => event.ticketCategories.reduce((acc, cat) => acc + cat.limit, 0);
+    const getTotalSold = (event: Event) => event.ticketCategories.reduce((acc, cat) => acc + cat.sold, 0);
     
-    const handleEditClick = (event: Event) => {
-        setEditingEventId(event.id);
-        setEditFormData({
-            ...event,
-            date: format(new Date(event.date), 'yyyy-MM-dd')
-        });
-    };
-
-    const handleCancelClick = () => {
-        setEditingEventId(null);
-        setEditFormData({});
-    };
-
-    const handleSaveClick = async (eventId: string) => {
-        if (!firestore || !editFormData) return;
-
+    const handleDeleteEvent = (eventId: string, eventName: string) => {
+        if (!firestore) return;
         const eventRef = doc(firestore, 'events', eventId);
-        // We only allow editing of name, date, time and venue here
-        const { name, date, time, venue } = editFormData;
-        updateDocumentNonBlocking(eventRef, { name, date, time, venue });
+        deleteDocumentNonBlocking(eventRef);
 
         toast({
-            title: 'Event Updated',
-            description: `The event "${name}" has been successfully updated.`,
+            title: 'Event Deleted',
+            description: `The event "${eventName}" has been successfully deleted.`,
+            variant: 'destructive',
         });
-
-        setEditingEventId(null);
-        setEditFormData({});
-    };
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setEditFormData(prev => ({ ...prev, [name]: value }));
-    };
+    }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -104,7 +86,10 @@ export default function AdminEventsPage() {
       </div>
       
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader>
+            <CardTitle>Events List</CardTitle>
+        </CardHeader>
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
@@ -127,64 +112,64 @@ export default function AdminEventsPage() {
                     <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                 </TableRow>
               ))}
-              {!isLoading && events?.map((event) => {
-                const isEditing = editingEventId === event.id;
-                return isEditing ? (
-                    <TableRow key={event.id} className="bg-muted/50">
-                        <TableCell className="font-medium">
-                           <Input name="name" value={editFormData.name} onChange={handleInputChange} className="h-8" />
-                           <Input name="venue" value={editFormData.venue} onChange={handleInputChange} className="h-8 mt-1 text-xs" />
-                        </TableCell>
-                        <TableCell>
-                           <Input name="date" type="date" value={editFormData.date} onChange={handleInputChange} className="h-8" />
-                           <Input name="time" type="time" value={editFormData.time} onChange={handleInputChange} className="h-8 mt-1" />
-                        </TableCell>
-                         <TableCell className="text-center">
-                             <Badge variant={new Date(event.date) > new Date() ? 'outline' : 'secondary'}>
-                                {new Date(event.date) > new Date() ? 'Upcoming' : 'Past'}
-                            </Badge>
-                         </TableCell>
-                        <TableCell className="text-right">{getTotalSold(event)} / {getTotalTickets(event)}</TableCell>
-                        <TableCell className="text-right">
-                           <div className='flex justify-end gap-2'>
-                                <Button size="icon" variant="ghost" className='h-8 w-8' onClick={handleCancelClick}><X className='h-4 w-4'/></Button>
-                                <Button size="icon" className='h-8 w-8' onClick={() => handleSaveClick(event.id)}><Save className='h-4 w-4'/></Button>
-                           </div>
-                        </TableCell>
-                    </TableRow>
-                ) : (
-                    <TableRow key={event.id}>
-                        <TableCell className="font-medium">
-                            <div className="font-medium">{event.name}</div>
-                            <div className="text-sm text-muted-foreground">{event.venue}</div>
-                        </TableCell>
-                        <TableCell>{format(new Date(event.date), "PPP")} at {event.time}</TableCell>
-                        <TableCell className="text-center">
-                            <Badge variant={new Date(event.date) > new Date() ? 'outline' : 'secondary'}>
-                            {new Date(event.date) > new Date() ? 'Upcoming' : 'Past'}
-                            </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{getTotalSold(event)} / {getTotalTickets(event)}</TableCell>
-                        <TableCell className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Toggle menu</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => handleEditClick(event)}>
+              {!isLoading && events?.map((event) => (
+                <TableRow key={event.id}>
+                    <TableCell className="font-medium">
+                        <div className="font-medium">{event.name}</div>
+                        <div className="text-sm text-muted-foreground">{event.venue}</div>
+                    </TableCell>
+                    <TableCell>{format(new Date(event.date), "PPP")} at {event.time}</TableCell>
+                    <TableCell className="text-center">
+                        <Badge variant={new Date(event.date) > new Date() ? 'outline' : 'secondary'}>
+                        {new Date(event.date) > new Date() ? 'Upcoming' : 'Past'}
+                        </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{getTotalSold(event)} / {getTotalTickets(event)}</TableCell>
+                    <TableCell className="text-right">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/admin/events/${event.id}`}>
                                     <Edit className="mr-2 h-4 w-4" /> Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>Delete</DropdownMenuItem>
-                            </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                    </TableRow>
-                )
-              })}
+                                </Link>
+                            </DropdownMenuItem>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" className='w-full text-sm text-destructive hover:bg-destructive/10 hover:text-destructive justify-start px-2 py-1.5 relative select-none items-center rounded-sm font-normal'>
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the event "{event.name}".
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            className='bg-destructive hover:bg-destructive/90'
+                                            onClick={() => handleDeleteEvent(event.id, event.name)}
+                                        >
+                                            Yes, delete it
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                </TableRow>
+              ))}
                {!isLoading && events?.length === 0 && (
                 <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center">
