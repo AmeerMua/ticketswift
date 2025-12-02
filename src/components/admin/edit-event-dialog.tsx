@@ -92,18 +92,10 @@ export function EditEventDialog({ event, isOpen, onOpenChange }: EditEventDialog
     if (!firestore || !event) return;
     const eventRef = doc(firestore, 'events', event.id);
     
-    const eventData = {
-      ...data,
-      ticketCategories: data.ticketCategories.map(cat => {
-        const existingCat = event.ticketCategories.find(ec => ec.id === cat.id);
-        return {
-            ...cat,
-            sold: existingCat ? existingCat.sold || 0 : 0,
-        };
-      })
-    };
-    
-    updateDocumentNonBlocking(eventRef, eventData);
+    // The form data ('data') is already in the correct shape.
+    // The 'sold' count for existing categories is preserved from the form's state.
+    // New categories added via the form will have their 'sold' field from the 'append' default.
+    updateDocumentNonBlocking(eventRef, data);
 
     toast({
       title: 'Event Updated',
