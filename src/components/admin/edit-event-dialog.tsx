@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, useFieldArray } from 'react-hook-form';
@@ -86,12 +85,15 @@ export function EditEventDialog({ event, isOpen, onOpenChange }: EditEventDialog
             ticketCategories: event.ticketCategories.map(cat => ({ ...cat, sold: cat.sold || 0 })),
         });
     }
-  }, [event, form]);
+  }, [event, form, isOpen]);
 
   const onSubmit = async (data: EventFormValues) => {
     if (!firestore || !event) return;
     const eventRef = doc(firestore, 'events', event.id);
-    
+
+    // Directly use the data from the form.
+    // The form now correctly holds the 'sold' values from the initial state,
+    // and new categories will have 'sold: 0' by default from the append action.
     updateDocumentNonBlocking(eventRef, data);
 
     toast({
