@@ -17,10 +17,12 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Event } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EventDetailDialog } from '@/components/events/event-detail-dialog';
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [category, setCategory] = useState('all');
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const firestore = useFirestore();
 
   const eventsQuery = useMemoFirebase(
@@ -125,7 +127,7 @@ export default function HomePage() {
           {!isLoading && filteredEvents.length > 0 && (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
+                <EventCard key={event.id} event={event} onSelectEvent={setSelectedEvent} />
               ))}
             </div>
           )}
@@ -143,8 +145,18 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      {selectedEvent && (
+        <EventDetailDialog
+          event={selectedEvent}
+          isOpen={!!selectedEvent}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) {
+              setSelectedEvent(null);
+            }
+          }}
+        />
+      )}
     </>
   );
 }
-
-    

@@ -1,6 +1,5 @@
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { MapPin, Calendar } from 'lucide-react';
 import type { Event } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -16,9 +15,10 @@ import { format } from 'date-fns';
 
 interface EventCardProps {
   event: Event;
+  onSelectEvent: (event: Event) => void;
 }
 
-export function EventCard({ event }: EventCardProps) {
+export function EventCard({ event, onSelectEvent }: EventCardProps) {
   const isSoldOut = event.ticketCategories.every(
     (cat) => cat.sold >= cat.limit
   );
@@ -26,7 +26,7 @@ export function EventCard({ event }: EventCardProps) {
   return (
     <Card className="flex flex-col overflow-hidden transition-transform duration-300 ease-in-out hover:-translate-y-1 hover:shadow-lg">
       <CardHeader className="p-0">
-        <Link href={`/events/${event.id}`} className="block aspect-[3/2] w-full relative">
+        <button onClick={() => onSelectEvent(event)} className="block aspect-[3/2] w-full relative focus:outline-none focus:ring-2 focus:ring-primary rounded-t-lg">
           <Image
             src={event.imageUrl}
             alt={event.name}
@@ -37,13 +37,13 @@ export function EventCard({ event }: EventCardProps) {
            {isSoldOut && (
             <Badge variant="destructive" className="absolute top-2 right-2">SOLD OUT</Badge>
           )}
-        </Link>
+        </button>
       </CardHeader>
       <CardContent className="flex-1 p-4">
         <CardTitle className="mb-2 text-xl font-headline">
-          <Link href={`/events/${event.id}`} className="hover:text-primary transition-colors">
+          <button onClick={() => onSelectEvent(event)} className="text-left hover:text-primary transition-colors">
             {event.name}
-          </Link>
+          </button>
         </CardTitle>
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
@@ -57,10 +57,8 @@ export function EventCard({ event }: EventCardProps) {
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Button asChild className="w-full" size="sm" variant={isSoldOut ? "secondary" : "default"} disabled={isSoldOut}>
-          <Link href={`/events/${event.id}`}>
-            {isSoldOut ? 'Sold Out' : 'Get Tickets'}
-          </Link>
+        <Button onClick={() => onSelectEvent(event)} className="w-full" size="sm" variant={isSoldOut ? "secondary" : "default"} disabled={isSoldOut}>
+          {isSoldOut ? 'Sold Out' : 'Get Tickets'}
         </Button>
       </CardFooter>
     </Card>
