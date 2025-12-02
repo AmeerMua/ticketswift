@@ -1,3 +1,4 @@
+
 'use client';
 
 import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet, Upload, User as UserIcon, Check, X, Ban } from 'lucide-react';
@@ -137,7 +138,7 @@ function UserDetails({ user, onVerifyId, onVerifyPayment, onCancelBooking }) {
                                             {booking.numberOfTickets} Ticket{booking.numberOfTickets > 1 ? 's' : ''} &bull; ${booking.totalAmount.toFixed(2)}
                                         </p>
                                     </div>
-                                    <Badge variant={bookingStatusVariant[booking.status] || 'outline'} className="self-start text-xs whitespace-nowrap">
+                                    <Badge variant={bookingStatusVariant[booking.status] || 'outline'} className="text-xs whitespace-nowrap">
                                         {booking.status}
                                     </Badge>
                                 </div>
@@ -336,7 +337,7 @@ export default function AdminUsersPage() {
 
                     return (
                         <AccordionItem value={user.id} key={user.id}>
-                            <AccordionTrigger className='px-4 hover:bg-muted/50 rounded-md data-[state=open]:bg-muted/50 data-[state=open]:rounded-b-none transition-colors'>
+                            <AccordionTrigger className='px-4 hover:no-underline hover:bg-muted/50 rounded-md data-[state=open]:bg-muted/50 data-[state=open]:rounded-b-none transition-colors'>
                                 <div className='flex items-center gap-4 flex-1 text-left'>
                                     <Image src={`https://i.pravatar.cc/150?u=${user.id}`} alt={user.name} width={40} height={40} className="rounded-full" />
                                     <div className='flex-1'>
@@ -367,3 +368,5 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+
+    
