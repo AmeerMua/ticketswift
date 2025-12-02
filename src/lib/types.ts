@@ -6,6 +6,7 @@ export type User = {
   avatarUrl: string;
   verificationStatus: 'Verified' | 'Pending' | 'Rejected' | 'NotSubmitted';
   purchaseHistory: string[]; // Array of booking IDs
+  disabled?: boolean;
 };
 
 export type TicketCategory = {

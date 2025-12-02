@@ -1,7 +1,7 @@
 
 'use client';
 
-import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, Wallet, Upload, User as UserIcon, Check, X, Ban } from 'lucide-react';
+import { MoreHorizontal, Loader2, CheckCircle, XCircle, ShieldQuestion, UserX, Trash2, UserCheck, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,9 +16,17 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { useCollection, useFirestore, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, updateDocumentNonBlocking, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -34,7 +42,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useState } from 'react';
 import { logAuditEvent } from '@/lib/audit';
@@ -95,11 +102,11 @@ function UserDetails({ user, onVerifyId, onVerifyPayment, onCancelBooking }) {
                             <p className='text-sm text-muted-foreground'>User submitted the above ID for verification.</p>
                              <div className='flex justify-end gap-2'>
                                 <Button size="sm" variant="destructive" onClick={() => onVerifyId(user, 'Rejected')}>
-                                    <X className='mr-2 h-4 w-4' />
+                                    <XCircle className='mr-2 h-4 w-4' />
                                     Reject
                                 </Button>
                                 <Button size="sm" onClick={() => onVerifyId(user, 'Verified')}>
-                                    <Check className='mr-2 h-4 w-4' />
+                                    <CheckCircle className='mr-2 h-4 w-4' />
                                     Approve
                                 </Button>
                             </div>
@@ -150,7 +157,7 @@ function UserDetails({ user, onVerifyId, onVerifyPayment, onCancelBooking }) {
                                         </div>
                                         <div className='flex justify-end gap-2'>
                                             <Button size='sm' className='h-7 text-xs' variant="destructive" onClick={() => onVerifyPayment(user, booking, 'Cancelled')}>
-                                                <X className='mr-2 h-3 w-3'/> Reject
+                                                <XCircle className='mr-2 h-3 w-3'/> Reject
                                             </Button>
                                             <Button size='sm' className='h-7 text-xs' onClick={() => onVerifyPayment(user, booking, 'Confirmed')}>
                                                 <CheckCircle className='mr-2 h-3 w-3'/> Approve Payment
@@ -163,7 +170,7 @@ function UserDetails({ user, onVerifyId, onVerifyPayment, onCancelBooking }) {
                                          <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button size="sm" variant="ghost" className="text-destructive h-7 text-xs hover:bg-destructive/10 hover:text-destructive">
-                                                    <Ban className='mr-2 h-3 w-3' />
+                                                    <XCircle className='mr-2 h-3 w-3' />
                                                     Cancel Booking
                                                 </Button>
                                             </AlertDialogTrigger>
@@ -199,6 +206,9 @@ function UserDetails({ user, onVerifyId, onVerifyPayment, onCancelBooking }) {
 export default function AdminUsersPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
+    const [actionUser, setActionUser] = useState<any>(null);
+    const [isDeactivateAlertOpen, setIsDeactivateAlertOpen] = useState(false);
+    const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
     
     const usersQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -289,8 +299,48 @@ export default function AdminUsersPage() {
             description: `${user.name} has been ${newAdminStatus ? 'made an admin' : 'removed as an admin'}.`,
         });
     }
+    
+    const confirmDeactivateUser = () => {
+        if (!firestore || !actionUser) return;
+        
+        const userRef = doc(firestore, 'users', actionUser.id);
+        const newDisabledStatus = !actionUser.disabled;
+        
+        // In a real app, you would also call a Cloud Function to update Firebase Auth user `disabled` state
+        // admin.auth().updateUser(actionUser.id, { disabled: newDisabledStatus });
+        console.log(`Setting user ${actionUser.id} disabled status to: ${newDisabledStatus} (Auth change is a placeholder)`);
+
+        updateDocumentNonBlocking(userRef, { disabled: newDisabledStatus });
+
+        toast({
+            title: `User Account ${newDisabledStatus ? 'Deactivated' : 'Re-activated'}`,
+            description: `${actionUser.name}'s account has been updated.`,
+        });
+        setIsDeactivateAlertOpen(false);
+        setActionUser(null);
+    }
+    
+    const confirmDeleteUser = () => {
+        if (!firestore || !actionUser) return;
+
+        // In a real app, you would also call a Cloud Function to delete the Firebase Auth user
+        // admin.auth().deleteUser(actionUser.id);
+        console.log(`Deleting user ${actionUser.id} from Firestore (Auth deletion is a placeholder)`);
+
+        deleteDocumentNonBlocking(doc(firestore, 'users', actionUser.id));
+
+        toast({
+            title: 'User Deleted',
+            description: `The user ${actionUser.name} has been permanently deleted.`,
+            variant: 'destructive',
+        });
+        setIsDeleteAlertOpen(false);
+        setActionUser(null);
+    }
+
 
   return (
+    <>
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <div>
@@ -337,24 +387,51 @@ export default function AdminUsersPage() {
 
                     return (
                         <AccordionItem value={user.id} key={user.id}>
-                            <AccordionTrigger className='px-4 hover:no-underline hover:bg-muted/50 rounded-md data-[state=open]:bg-muted/50 data-[state=open]:rounded-b-none transition-colors'>
-                                <div className='flex items-center gap-4 flex-1 text-left'>
-                                    <Image src={`https://i.pravatar.cc/150?u=${user.id}`} alt={user.name} width={40} height={40} className="rounded-full" />
-                                    <div className='flex-1'>
-                                        <p className="font-semibold">{user.name}</p>
-                                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                            <div className='flex items-center pr-4 hover:bg-muted/50 rounded-md data-[state=open]:bg-muted/50 data-[state=open]:rounded-b-none transition-colors group'>
+                                <AccordionTrigger className='flex-1 py-0 px-4 hover:no-underline'>
+                                    <div className='flex items-center gap-4 flex-1 text-left py-4'>
+                                        <Image src={`https://i.pravatar.cc/150?u=${user.id}`} alt={user.name} width={40} height={40} className="rounded-full" />
+                                        <div className='flex-1'>
+                                            <p className="font-semibold">{user.name}</p>
+                                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                                        </div>
+                                        <div className='flex flex-col md:flex-row items-center gap-2'>
+                                            <Badge variant={user.verified ? 'default' : config.variant} className='gap-1.5'>
+                                                <Icon className={`h-3.5 w-3.5 ${user.verified ? '' : config.className}`} />
+                                                {user.verified ? 'Verified' : status}
+                                            </Badge>
+                                             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
+                                                {user.isAdmin ? "Admin" : "User"}
+                                            </Badge>
+                                            {user.disabled && <Badge variant="destructive">Deactivated</Badge>}
+                                        </div>
                                     </div>
-                                    <div className='flex flex-col md:flex-row items-center gap-2'>
-                                        <Badge variant={user.verified ? 'default' : config.variant} className='gap-1.5'>
-                                            <Icon className={`h-3.5 w-3.5 ${user.verified ? '' : config.className}`} />
-                                            {user.verified ? 'Verified' : status}
-                                        </Badge>
-                                         <Badge variant={user.isAdmin ? "secondary" : "outline"}>
-                                            {user.isAdmin ? "Admin" : "User"}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            </AccordionTrigger>
+                                </AccordionTrigger>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                            <span className="sr-only">Open menu</span>
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => handleAdminToggle(user)}>
+                                            <UserCog className="mr-2 h-4 w-4" />
+                                            {user.isAdmin ? 'Remove Admin' : 'Make Admin'}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => { setActionUser(user); setIsDeactivateAlertOpen(true); }}>
+                                             {user.disabled ? <UserCheck className="mr-2 h-4 w-4" /> : <UserX className="mr-2 h-4 w-4" />}
+                                            {user.disabled ? 'Re-activate User' : 'Deactivate User'}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem className='text-destructive' onClick={() => { setActionUser(user); setIsDeleteAlertOpen(true); }}>
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Delete User
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                             <AccordionContent>
                                 <UserDetails user={user} onVerifyId={handleVerification} onVerifyPayment={handlePaymentVerification} onCancelBooking={handleCancelBooking} />
                             </AccordionContent>
@@ -366,7 +443,49 @@ export default function AdminUsersPage() {
         </CardContent>
       </Card>
     </div>
+
+    {/* Deactivation Confirmation */}
+    <AlertDialog open={isDeactivateAlertOpen} onOpenChange={setIsDeactivateAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will {actionUser?.disabled ? 're-activate' : 'deactivate'} the account for <span className='font-bold'>{actionUser?.name}</span>. 
+                {actionUser?.disabled ? ' They will be able to log in again.' : ' They will no longer be able to log in.'}
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setActionUser(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+                onClick={confirmDeactivateUser}
+                className={actionUser?.disabled ? '' : 'bg-destructive hover:bg-destructive/90'}
+            >
+                {actionUser?.disabled ? 'Yes, Re-activate' : 'Yes, Deactivate'}
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    
+    {/* Deletion Confirmation */}
+    <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action is permanent and cannot be undone. This will delete the account for <span className='font-bold'>{actionUser?.name}</span> and all associated data.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setActionUser(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+                className='bg-destructive hover:bg-destructive/90'
+                onClick={confirmDeleteUser}
+            >
+                Yes, Delete Permanently
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
-
-    

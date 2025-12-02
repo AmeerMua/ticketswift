@@ -109,6 +109,10 @@
         "isAdmin": {
           "type": "boolean",
           "description": "Indicates whether the user has admin privileges."
+        },
+        "disabled": {
+          "type": "boolean",
+          "description": "Indicates whether the user's account has been deactivated by an admin."
         }
       },
       "required": [
@@ -116,7 +120,8 @@
         "name",
         "email",
         "verified",
-        "isAdmin"
+        "isAdmin",
+        "disabled"
       ]
     },
     "Booking": {
