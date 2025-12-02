@@ -257,6 +257,22 @@
         }
       },
       {
+        "path": "/bookings/{bookingId}",
+        "definition": {
+          "entityName": "Booking",
+          "schema": {
+            "$ref": "#/backend/entities/Booking"
+          },
+          "description": "A top-level collection for all bookings, used for admin reporting and aggregation. Writable by users creating a booking (via a Cloud Function), and readable only by admins.",
+          "params": [
+            {
+              "name": "bookingId",
+              "description": "Unique identifier for the booking."
+            }
+          ]
+        }
+      },
+      {
         "path": "/roles_admin/{userId}",
         "definition": {
           "entityName": "roles_admin",

@@ -53,9 +53,9 @@ export default function AdminDashboardPage() {
     const { data: events, isLoading: eventsLoading } = useCollection(eventsQuery);
 
     const recentSalesQuery = useMemoFirebase(() => {
-        if (!firestore || !bookings) return null;
+        if (!firestore) return null;
         return query(collection(firestore, 'bookings'), orderBy('bookingDate', 'desc'), limit(5));
-    }, [firestore, bookings]);
+    }, [firestore]);
 
     const { data: recentSales, isLoading: recentSalesLoading } = useCollection(recentSalesQuery);
 

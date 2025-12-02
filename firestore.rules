@@ -118,6 +118,19 @@ service cloud.firestore {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
+    
+    /**
+     * @description Top-level bookings collection for admin reporting.
+     * @path /bookings/{bookingId}
+     * @allow (list) Admins can list all bookings for reporting.
+     * @deny (get, create, update, delete) Direct manipulation is denied. Bookings are created via user actions.
+     */
+    match /bookings/{bookingId} {
+      allow get, list: if isAdmin();
+      // Deny direct writes; these should happen via the user's subcollection
+      // and a corresponding function/trigger that copies it here.
+      allow create, update, delete: if false;
+    }
 
     /**
      * @description User profile documents. Users can create and manage their own profile. Admins have override access.
