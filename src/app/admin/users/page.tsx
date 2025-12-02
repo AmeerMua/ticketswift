@@ -42,6 +42,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useState } from 'react';
 import { logAuditEvent } from '@/lib/audit';
@@ -489,3 +490,5 @@ export default function AdminUsersPage() {
     </>
   );
 }
+
+    
