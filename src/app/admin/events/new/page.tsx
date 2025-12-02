@@ -88,10 +88,14 @@ export default function NewEventPage() {
   const onSubmit = async (data: EventFormValues) => {
     if (!firestore) return;
     
-    const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+    const eventsRef = collection(firestore, 'events');
+    const newEventRef = doc(eventsRef); 
+    const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '') + '-' + newEventRef.id.substring(0,4);
+
 
     const eventData = {
       ...data,
+      id: newEventRef.id,
       slug,
       imageUrl: `https://picsum.photos/seed/${slug}/1200/800`,
       imageHint: data.name.split(' ').slice(0, 2).join(' ').toLowerCase(),
@@ -102,11 +106,7 @@ export default function NewEventPage() {
       }))
     };
     
-    const eventsRef = collection(firestore, 'events');
-    const newEventRef = doc(eventsRef); 
-    const eventWithId = { ...eventData, id: newEventRef.id };
-
-    await addDocumentNonBlocking(eventsRef, eventWithId, newEventRef);
+    await addDocumentNonBlocking(eventsRef, eventData, newEventRef);
 
     await sendEmail(
         'sample.user@example.com',

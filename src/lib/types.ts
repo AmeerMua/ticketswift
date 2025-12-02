@@ -9,7 +9,7 @@ export type User = {
 
 export type TicketCategory = {
   id: string;
-  name: 'VIP' | 'Normal' | 'Reserved';
+  name: string;
   price: number;
   limit: number;
   sold: number;
@@ -18,6 +18,7 @@ export type TicketCategory = {
 export type Event = {
   id: string;
   name: string;
+  slug: string;
   date: string;
   time: string;
   venue: string;
@@ -26,6 +27,7 @@ export type Event = {
   imageUrl: string;
   imageHint: string;
   ticketCategories: TicketCategory[];
+  bookingDeadline?: string;
 };
 
 export type Booking = {
@@ -39,6 +41,7 @@ export type Booking = {
   bookingDate: string;
   status: 'Confirmed' | 'Pending' | 'Cancelled' | 'PaymentPending';
   paymentScreenshotUrl?: string; // URL to the payment screenshot in Firebase Storage
+  numberOfTickets: number;
 };
 
 export type Ticket = {
@@ -46,7 +49,7 @@ export type Ticket = {
   bookingId: string;
   eventId: string;
   userId: string;
-  categoryName: TicketCategory['name'];
+  categoryName: string;
   price: number;
   qrCodeUrl?: string; // This is now generated on the fly, so it can be optional
 };

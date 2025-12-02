@@ -72,7 +72,7 @@ export default function EventDetailsPage() {
   }
   
   if (!event || !event.ticketCategories) {
-      // This can happen briefly while data is propagating
+      // This can happen briefly while data is propagating or if data is malformed
       return (
         <div className="container mx-auto flex h-96 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -157,6 +157,7 @@ export default function EventDetailsPage() {
   const handleBookingSubmit = async (screenshotFile: File) => {
     if (!user || !firestore) return;
 
+    // In a real app, you would upload this file to Firebase Storage first
     const screenshotUrl = 'placeholder/screenshot.jpg';
     
     const tickets = Object.entries(ticketQuantities)
@@ -167,7 +168,7 @@ export default function EventDetailsPage() {
 
         return Array.from({ length: quantity }, (_, i) => ({
           id: `${categoryId}-${Date.now()}-${i}`,
-          bookingId: '',
+          bookingId: '', // This will be set after booking is created
           eventId: event.id,
           userId: user.uid,
           categoryName: category.name,
@@ -189,30 +190,28 @@ export default function EventDetailsPage() {
     };
 
     const bookingsRef = collection(firestore, `users/${user.uid}/bookings`);
-    const bookingDocRef = doc(bookingsRef); // Let firestore generate ID
-    
-    // Pass the ref with the generated ID to the add function
-    await addDocumentNonBlocking(bookingsRef, { ...bookingData, id: bookingDocRef.id }, bookingDocRef);
+    const bookingDocRef = await addDocumentNonBlocking(bookingsRef, bookingData);
 
+    if (bookingDocRef) {
+        logAuditEvent(firestore, {
+          userId: user.uid,
+          action: 'create-booking',
+          details: {
+            bookingId: bookingDocRef.id,
+            eventId: event.id,
+            numberOfTickets: totalTickets,
+            totalPrice: totalPrice,
+          },
+        });
 
-    logAuditEvent(firestore, {
-      userId: user.uid,
-      action: 'create-booking',
-      details: {
-        bookingId: bookingDocRef.id,
-        eventId: event.id,
-        numberOfTickets: totalTickets,
-        totalPrice: totalPrice,
-      },
-    });
+        setIsPaymentDialogOpen(false);
+        toast({
+          title: 'Submission Received!',
+          description: 'Thank you for purchasing tickets. After confirmation of your payment, you will be able to download them from your profile.',
+        });
 
-    setIsPaymentDialogOpen(false);
-    toast({
-      title: 'Submission Received!',
-      description: 'Thank you for purchasing tickets. After confirmation of your payment, you will be able to download them from your profile.',
-    });
-
-    setTicketQuantities(event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {}));
+        setTicketQuantities(event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {}));
+    }
   };
 
   return (
