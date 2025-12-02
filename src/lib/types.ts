@@ -28,7 +28,7 @@ export type Event = {
   imageUrl: string;
   imageHint: string;
   ticketCategories: TicketCategory[];
-  bookingDeadline?: string;
+  bookingDeadline: string;
   totalRevenue?: number;
 };
 

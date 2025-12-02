@@ -49,7 +49,7 @@ const eventFormSchema = z.object({
   venue: z.string().min(3, 'Venue is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters long.'),
   ticketCategories: z.array(ticketCategorySchema).min(1, 'At least one ticket category is required.'),
-  bookingDeadline: z.string().optional(),
+  bookingDeadline: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'A valid booking deadline is required.' }),
   category: z.string().min(1, 'Category is required.'),
 });
 
@@ -82,7 +82,7 @@ export function EditEventDialog({ event, isOpen, onOpenChange }: EditEventDialog
         form.reset({
             ...event,
             date: format(new Date(event.date), 'yyyy-MM-dd'),
-            bookingDeadline: event.bookingDeadline ? format(new Date(event.bookingDeadline), 'yyyy-MM-dd') : undefined,
+            bookingDeadline: event.bookingDeadline ? format(new Date(event.bookingDeadline), 'yyyy-MM-dd') : '',
             ticketCategories: event.ticketCategories.map(cat => ({ ...cat, sold: cat.sold || 0 })),
         });
     }
@@ -195,7 +195,7 @@ export function EditEventDialog({ event, isOpen, onOpenChange }: EditEventDialog
                                 name="bookingDeadline"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Booking Deadline (Optional)</FormLabel>
+                                    <FormLabel>Booking Deadline</FormLabel>
                                     <FormControl>
                                     <Input type="date" {...field} />
                                     </FormControl>

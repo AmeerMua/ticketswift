@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Event": {
@@ -33,7 +34,7 @@
         },
         "bookingDeadline": {
             "type": "string",
-            "description": "The last date for users to book tickets. Optional.",
+            "description": "The last date for users to book tickets.",
             "format": "date"
         }
       },
@@ -43,7 +44,8 @@
         "date",
         "time",
         "venue",
-        "description"
+        "description",
+        "bookingDeadline"
       ]
     },
     "TicketCategory": {

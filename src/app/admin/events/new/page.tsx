@@ -45,7 +45,7 @@ const eventFormSchema = z.object({
   venue: z.string().min(3, 'Venue is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters long.'),
   ticketCategories: z.array(ticketCategorySchema).min(1, 'At least one ticket category is required.'),
-  bookingDeadline: z.string().optional(),
+  bookingDeadline: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'A valid booking deadline is required.' }),
   category: z.string().min(1, 'Category is required.'),
   slug: z.string().optional(),
 });
@@ -77,6 +77,7 @@ export default function NewEventPage() {
       description: '',
       ticketCategories: [{ name: 'Normal', price: 2000, limit: 100 }],
       category: 'Music',
+      bookingDeadline: '',
     },
   });
 
@@ -206,7 +207,7 @@ export default function NewEventPage() {
                     name="bookingDeadline"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Booking Deadline (Optional)</FormLabel>
+                        <FormLabel>Booking Deadline</FormLabel>
                         <FormControl>
                           <Input type="date" {...field} />
                         </FormControl>

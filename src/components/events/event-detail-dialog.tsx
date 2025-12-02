@@ -6,8 +6,8 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Calendar, Clock, MapPin, Ticket, Minus, Plus } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar, Clock, MapPin, Ticket, Minus, Plus, AlertTriangle } from 'lucide-react';
+import { format, differenceInDays, isPast } from 'date-fns';
 import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +15,7 @@ import { PaymentSubmissionDialog } from '@/components/events/payment-submission-
 import { collection } from 'firebase/firestore';
 import { logAuditEvent } from '@/lib/audit';
 import { Event } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface EventDetailDialogProps {
@@ -81,25 +81,18 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
     return acc + (ticketQuantities[cat.id] || 0) * cat.price;
   }, 0);
   
+  const isDeadlinePassed = isPast(new Date(event.bookingDeadline));
+
   const isBookingDisabled = () => {
-    if (!user) return true;
-    if (!userData) return true;
-    if (userData.verified !== true) return true;
-    const now = new Date();
-    const deadline = event.bookingDeadline ? new Date(event.bookingDeadline) : null;
-    if (deadline && now > deadline) {
-        return true;
-    }
+    if (isDeadlinePassed) return true;
+    if (!user || !userData || userData.verified !== true) return true;
     return false;
   };
 
   const bookingDisabled = isBookingDisabled();
 
   const getDisabledMessage = () => {
-    const now = new Date();
-    const deadline = event.bookingDeadline ? new Date(event.bookingDeadline) : null;
-
-    if (deadline && now > deadline) {
+    if (isDeadlinePassed) {
         return <p>Booking for this event has closed.</p>;
     }
     if (!user) {
@@ -117,6 +110,14 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
     }
     return null;
   };
+  
+  const daysLeft = differenceInDays(new Date(event.bookingDeadline), new Date());
+  const deadlineText = isDeadlinePassed
+    ? 'Booking closed'
+    : daysLeft === 0
+    ? 'Ends today'
+    : `${daysLeft} day${daysLeft > 1 ? 's' : ''} left to book`;
+
 
   const handleBookingSubmit = async (screenshotFile: File) => {
     if (!user || !firestore) return;
@@ -235,6 +236,13 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
                                 <Ticket className="h-6 w-6 text-primary" />
                                 Get Your Tickets
                             </h3>
+                            <div className='p-3 border rounded-lg flex justify-between items-center bg-muted/30 text-sm'>
+                                <div className='flex items-center gap-2'>
+                                    <AlertTriangle className={`h-4 w-4 ${isDeadlinePassed ? 'text-destructive' : 'text-amber-600'}`}/>
+                                    <span className='font-medium'>Booking Deadline</span>
+                                </div>
+                                <span className={`${isDeadlinePassed ? 'text-destructive' : 'text-muted-foreground'}`}>{deadlineText}</span>
+                            </div>
                             <div className="space-y-3">
                                 {event.ticketCategories.map((category) => (
                                     <div key={category.id} className="p-4 border rounded-lg flex justify-between items-center bg-muted/20">
