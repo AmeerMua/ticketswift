@@ -35,7 +35,7 @@ const MAX_FILE_SIZE_MB = 1;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 export default function VerifyIdPage() {
-  const { user, userData } = useUser();
+  const { user, userData, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
@@ -44,6 +44,13 @@ export default function VerifyIdPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verification, setVerification] = useState<VerificationResult>({ state: 'idle', message: null });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Redirect if user is not logged in or if email is not verified.
+    if (!isUserLoading && (!user || !user.emailVerified)) {
+      router.push('/profile');
+    }
+  }, [user, isUserLoading, router]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -151,6 +158,26 @@ export default function VerifyIdPage() {
   };
   
   const isSubmitDisabled = !file || isSubmitting || verification.state === 'verifying' || verification.state === 'error';
+
+  // Render a loading state or nothing while the redirect check is happening
+  if (isUserLoading || !user || !user.emailVerified) {
+    return (
+        <div className="container mx-auto px-4 py-8">
+            <div className="max-w-xl mx-auto">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="font-headline text-2xl">
+                            Verifying...
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p>Checking your account status...</p>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
