@@ -15,7 +15,7 @@ import { PaymentSubmissionDialog } from '@/components/events/payment-submission-
 import { collection } from 'firebase/firestore';
 import { logAuditEvent } from '@/lib/audit';
 import { Event } from '@/lib/types';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface EventDetailDialogProps {
@@ -190,10 +190,12 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
       />
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl w-full h-[90vh] flex flex-col p-0">
+         <DialogHeader className="p-6 md:p-8 pb-0">
+            <DialogTitle className="text-4xl font-bold font-headline">{event.name}</DialogTitle>
+          </DialogHeader>
           <ScrollArea className="h-full">
-            <div className="p-6 md:p-8">
+            <div className="p-6 md:p-8 pt-0">
                 <div className='grid md:grid-cols-5 gap-8'>
-
                     <div className="md:col-span-3 space-y-6">
                         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl">
                             <Image
@@ -205,8 +207,7 @@ export function EventDetailDialog({ event, isOpen, onOpenChange }: EventDetailDi
                             />
                         </div>
                         <div className='space-y-2'>
-                            <h1 className="text-4xl font-bold font-headline">{event.name}</h1>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
+                           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
                                 <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4" />
                                 <span>{format(new Date(event.date), 'PPP')}</span>
