@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, notFound } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Calendar, Clock, MapPin, Ticket, Minus, Plus, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, addDocumentNonBlocking, useDoc, useMemoFirebase } from '@/firebase';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentSubmissionDialog } from '@/components/events/payment-submission-dialog';
@@ -32,36 +32,24 @@ export default function EventDetailsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const eventsQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'events') : null),
-    [firestore]
+  const eventRef = useMemoFirebase(
+    () => (firestore && id ? doc(firestore, 'events', id) : null),
+    [firestore, id]
   );
-  const { data: events, isLoading: isLoadingEvents } = useCollection<Event>(eventsQuery);
+  const { data: event, isLoading: isLoadingEvent } = useDoc<Event>(eventRef);
 
-  const event = useMemo(() => {
-    if (!events) return null;
-    const eventDoc = events.find((e) => e.id === id);
-    if (!eventDoc) return null;
-
-    // The subcollection data won't be on this object, so we create a default
-    // if it's missing, which it will be from Firestore.
-    return {
-      ...eventDoc,
-      ticketCategories: eventDoc.ticketCategories || [],
-    };
-  }, [events, id]);
-  
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
-  // Effect to initialize quantities once event data is loaded
-  useState(() => {
+  useEffect(() => {
     if (event) {
-        setTicketQuantities(event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {}));
+        setTicketQuantities(
+            event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
+        );
     }
-  });
+  }, [event]);
 
-  if (isLoadingEvents) {
+  if (isLoadingEvent) {
     return (
         <div className="container mx-auto px-4 py-8">
             <div className="grid md:grid-cols-5 gap-8">
@@ -107,7 +95,6 @@ export default function EventDetailsPage() {
           title: 'Booking Limit Exceeded',
           description: 'You can book a maximum of 3 tickets per event.',
         });
-        // Adjust the quantity to not exceed the limit
         const adjustedNewQuantity = newQuantity - (newTotal - 3);
         return { ...prev, [categoryId]: adjustedNewQuantity };
       }
@@ -161,11 +148,8 @@ export default function EventDetailsPage() {
   const handleBookingSubmit = async (screenshotFile: File) => {
     if (!user || !firestore) return;
 
-    // In a real app, you would upload the screenshotFile to Firebase Storage first
-    // and get the download URL. For this demo, we'll use a placeholder.
     const screenshotUrl = 'placeholder/screenshot.jpg';
     
-    // Generate individual ticket details
     const tickets = Object.entries(ticketQuantities)
       .filter(([, qty]) => qty > 0)
       .flatMap(([categoryId, quantity]) => {
@@ -173,8 +157,8 @@ export default function EventDetailsPage() {
         if (!category) return [];
 
         return Array.from({ length: quantity }, (_, i) => ({
-          id: `${categoryId}-${Date.now()}-${i}`, // pseudo-unique ticket ID
-          bookingId: '', // This will be set later if needed
+          id: `${categoryId}-${Date.now()}-${i}`,
+          bookingId: '',
           eventId: event.id,
           userId: user.uid,
           categoryName: category.name,
@@ -196,10 +180,9 @@ export default function EventDetailsPage() {
     };
 
     const bookingsRef = collection(firestore, `users/${user.uid}/bookings`);
-    const bookingDocRef = doc(bookingsRef); // Create a reference with a new ID
+    const bookingDocRef = doc(bookingsRef);
     const bookingId = bookingDocRef.id;
 
-    // Now use this ID in your data
     const finalBookingData = {
       ...bookingData,
       id: bookingId,
@@ -208,7 +191,6 @@ export default function EventDetailsPage() {
     
     await addDocumentNonBlocking(bookingsRef, finalBookingData, bookingDocRef);
 
-    // Log the audit event
     logAuditEvent(firestore, {
       userId: user.uid,
       action: 'create-booking',
@@ -226,7 +208,6 @@ export default function EventDetailsPage() {
       description: 'Thank you for purchasing tickets. After confirmation of your payment, you will be able to download them from your profile.',
     });
 
-    // Reset quantities
     setTicketQuantities(event.ticketCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {}));
   };
 
@@ -341,5 +322,3 @@ export default function EventDetailsPage() {
     </>
   );
 }
-
-    

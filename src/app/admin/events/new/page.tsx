@@ -26,7 +26,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useFirestore, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2, PlusCircle, Loader2 } from 'lucide-react';
 
@@ -45,11 +45,13 @@ const eventFormSchema = z.object({
   venue: z.string().min(3, 'Venue is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters long.'),
   ticketCategories: z.array(ticketCategorySchema).min(1, 'At least one ticket category is required.'),
+  bookingDeadline: z.string().optional(),
+  category: z.string().min(1, 'Category is required.'),
+  slug: z.string().optional(),
 });
 
 type EventFormValues = z.infer<typeof eventFormSchema>;
 
-// Placeholder function for sending emails
 const sendEmail = async (to: string, subject: string, body: string) => {
   console.log(`---
 SENDING EMAIL (placeholder)
@@ -57,7 +59,6 @@ To: ${to}
 Subject: ${subject}
 Body: ${body}
 ---`);
-  // In a real app, you would replace this with a call to a backend service
   return Promise.resolve();
 };
 
@@ -74,7 +75,8 @@ export default function NewEventPage() {
       time: '',
       venue: '',
       description: '',
-      ticketCategories: [{ name: 'Normal', price: 20, limit: 100 }],
+      ticketCategories: [{ name: 'Normal', price: 2000, limit: 100 }],
+      category: 'Music',
     },
   });
 
@@ -85,20 +87,27 @@ export default function NewEventPage() {
 
   const onSubmit = async (data: EventFormValues) => {
     if (!firestore) return;
+    
+    const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
 
     const eventData = {
       ...data,
-      // In a real app, you might want to convert date to a Firestore Timestamp
-      // For mock data compatibility, we'll keep it as a string
-      imageUrl: `https://picsum.photos/seed/${data.name.replace(/\s+/g, '-')}/1200/800`,
+      slug,
+      imageUrl: `https://picsum.photos/seed/${slug}/1200/800`,
       imageHint: data.name.split(' ').slice(0, 2).join(' ').toLowerCase(),
-      ticketCategories: data.ticketCategories.map(cat => ({...cat, sold: 0}))
+      ticketCategories: data.ticketCategories.map((cat, index) => ({
+        ...cat,
+        id: `${slug}-cat-${index}`,
+        sold: 0
+      }))
     };
-
+    
     const eventsRef = collection(firestore, 'events');
-    await addDocumentNonBlocking(eventsRef, eventData);
+    const newEventRef = doc(eventsRef); 
+    const eventWithId = { ...eventData, id: newEventRef.id };
 
-    // Placeholder: Send an email notification to a sample user
+    await addDocumentNonBlocking(eventsRef, eventWithId, newEventRef);
+
     await sendEmail(
         'sample.user@example.com',
         `New Event Added: ${data.name}`,
@@ -176,6 +185,38 @@ export default function NewEventPage() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Music" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                            Assign a category like 'Music', 'Tech', 'Food', etc.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                   <FormField
+                    control={form.control}
+                    name="bookingDeadline"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Booking Deadline (Optional)</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                            Last date for users to book tickets.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
               </div>
 
                 <FormField
@@ -219,7 +260,7 @@ export default function NewEventPage() {
                             name={`ticketCategories.${index}.price`}
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Price ($)</FormLabel>
+                                <FormLabel>Price (Rs.)</FormLabel>
                                 <FormControl>
                                 <Input type="number" {...field} />
                                 </FormControl>
