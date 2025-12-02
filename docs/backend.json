@@ -30,6 +30,11 @@
         "description": {
           "type": "string",
           "description": "Description of the event."
+        },
+        "bookingDeadline": {
+            "type": "string",
+            "description": "The last date for users to book tickets. Optional.",
+            "format": "date"
         }
       },
       "required": [
