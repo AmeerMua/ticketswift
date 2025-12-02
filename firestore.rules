@@ -86,19 +86,21 @@ service cloud.firestore {
     function hasValidBookingUserIdOnCreate(userId) {
       return request.resource.data.userId == userId;
     }
+
+    /**
+     * On booking update, ensures only the 'status' field is being changed.
+     * This prevents users or admins from changing other booking details after creation.
+     */
+    function isOnlyUpdatingStatus() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
     
     /**
      * On booking update, ensures a regular user is only changing the 'status' to 'Cancelled'.
-     * This prevents users from confirming their own bookings or changing other details.
      */
     function isOnlyCancellingBooking() {
-      let nextData = request.resource.data;
-      let currentData = resource.data;
       // Check that the new status is 'Cancelled' and the old one was not.
-      return nextData.status == 'Cancelled' 
-             && currentData.status != 'Cancelled'
-             // Use affectedKeys() to ensure ONLY the 'status' field is being changed.
-             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      return request.resource.data.status == 'Cancelled' && resource.data.status != 'Cancelled';
     }
 
     // ----------------------------------------------------------------------
@@ -115,18 +117,6 @@ service cloud.firestore {
     match /events/{eventId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
-
-      /**
-       * @description Ticket categories for an event. Stored within the event document, so this rule is redundant but kept for clarity.
-       * @path /events/{eventId}/ticketCategories/{ticketCategoryId}
-       * @allow (get, list) Any user can read the ticket categories for an event.
-       * @deny (create) A regular signed-in user attempts to add a new ticket category.
-       * @principle Enforces consistent security on nested data that shares the same access requirements as its parent.
-       */
-      match /ticketCategories/{ticketCategoryId} {
-        allow get, list: if true;
-        allow create, update, delete: if isAdmin();
-      }
     }
 
     /**
@@ -155,7 +145,7 @@ service cloud.firestore {
       match /bookings/{bookingId} {
         allow get, list: if isOwner(userId) || isAdmin();
         allow create: if isOwner(userId) && isVerifiedUser() && hasValidBookingUserIdOnCreate(userId) && isBookingWithinTicketLimit();
-        allow update: if isAdmin() || (isOwner(userId) && isOnlyCancellingBooking());
+        allow update: if (isAdmin() && isOnlyUpdatingStatus()) || (isOwner(userId) && isOnlyUpdatingStatus() && isOnlyCancellingBooking());
         allow delete: if isOwner(userId) || isAdmin();
       }
     }
