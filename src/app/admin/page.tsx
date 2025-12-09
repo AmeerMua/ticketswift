@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, limit } from 'firebase/firestore';
 import { useUser } from '@/firebase';
+import { Event, TicketCategory } from '@/lib/types';
 
 export default function AdminDashboardPage() {
     const firestore = useFirestore();
@@ -50,7 +51,7 @@ export default function AdminDashboardPage() {
         return collection(firestore, 'events');
     }, [firestore]);
 
-    const { data: events, isLoading: eventsLoading } = useCollection(eventsQuery);
+    const { data: events, isLoading: eventsLoading } = useCollection<Event>(eventsQuery);
 
     const recentSalesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -113,7 +114,7 @@ export default function AdminDashboardPage() {
                 <CardContent>
                     <div className="space-y-4">
                         {eventsLoading && <p>Loading events...</p>}
-                        {!eventsLoading && events?.filter(e => e.ticketCategories.every(tc => (tc.sold || 0) >= tc.limit)).map(event => (
+                        {!eventsLoading && events?.filter((e: Event) => e.ticketCategories.every((tc: TicketCategory) => (tc.sold || 0) >= tc.limit)).map((event: Event) => (
                             <div key={event.id} className="flex items-center">
                                 <div className="ml-4 space-y-1">
                                     <p className="text-sm font-medium leading-none">{event.name}</p>
@@ -122,7 +123,7 @@ export default function AdminDashboardPage() {
                                 <div className="ml-auto font-medium"><Badge variant="destructive">Sold Out</Badge></div>
                             </div>
                         ))}
-                         {!eventsLoading && events?.filter(e => e.ticketCategories.every(tc => (tc.sold || 0) >= tc.limit)).length === 0 && (
+                         {!eventsLoading && events?.filter((e: Event) => e.ticketCategories.every((tc: TicketCategory) => (tc.sold || 0) >= tc.limit)).length === 0 && (
                             <p className='text-sm text-muted-foreground'>No sold out events yet.</p>
                          )}
                     </div>
